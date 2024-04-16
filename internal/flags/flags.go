@@ -15,7 +15,6 @@
 package flags
 
 import (
-	"errors"
 	"flag"
 	"fmt"
 	"gitlabFileScanner/internal/file"
@@ -124,7 +123,7 @@ func (cfs *FlagSet) checkFlags() error {
 func (cfs *FlagSet) checkGitLabToken(flag Flag) error {
 	token := cfs.GetValueStr(flag)
 	if token == "" {
-		return errors.New("не указан токен GitLab")
+		return fmt.Errorf("не указан токен GitLab")
 	}
 	return nil
 }
@@ -132,7 +131,7 @@ func (cfs *FlagSet) checkGitLabToken(flag Flag) error {
 func (cfs *FlagSet) checkGitLabURL(flag Flag) error {
 	urlStr := cfs.GetValueStr(flag)
 	if urlStr == "" {
-		return errors.New("не указан URL-адрес сервера GitLab")
+		return fmt.Errorf("не указан URL-адрес сервера GitLab")
 	}
 
 	_, err := url.Parse(urlStr)
@@ -146,7 +145,7 @@ func (cfs *FlagSet) checkGitLabURL(flag Flag) error {
 func (cfs *FlagSet) checkBranch(flag Flag) error {
 	branch := cfs.GetValueStr(flag)
 	if branch == "" {
-		return errors.New("не указана ветка по-умолчанию")
+		return fmt.Errorf("не указана ветка по-умолчанию")
 	}
 	return nil
 }
@@ -154,7 +153,7 @@ func (cfs *FlagSet) checkBranch(flag Flag) error {
 func (cfs *FlagSet) checkExportPath(flag Flag) error {
 	path := cfs.GetValueStr(flag)
 	if path == "" {
-		return errors.New("не указан путь для экспорта списка файлов")
+		return fmt.Errorf("не указан путь для экспорта списка файлов")
 	}
 	if _, err := os.Stat(path); os.IsNotExist(err) {
 		err := os.MkdirAll(path, os.ModePerm)

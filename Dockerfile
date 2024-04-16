@@ -13,7 +13,7 @@
 # limitations under the License.
 
 # Стадия 1: Сборка ===
-FROM golang:latest as builder
+FROM golang:1.22 as builder
 RUN mkdir -p /app && mkdir -p /bin
 WORKDIR /app
 COPY . /app
