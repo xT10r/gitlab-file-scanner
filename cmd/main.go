@@ -2,12 +2,12 @@ package main
 
 import (
 	"fmt"
-	"gitlabFileScanner/cmd"
+	"gitlabFileScanner/internal/app"
 	"os"
 )
 
 func main() {
-	err := cmd.Start()
+	err := app.Start()
 	if err != nil {
 		fmt.Printf("%v\n", err)
 		os.Exit(1)

@@ -23,14 +23,16 @@ import (
 	"strings"
 )
 
+type GitlabFilePathsStruct struct {
+	Name      string   `json:"Name"`
+	ID        int      `json:"Id"`
+	Branch    string   `json:"Branch"`
+	FilePaths []string `json:"filePaths"`
+}
+
 func SaveFilesListToJSON(exportPath string, filePaths []string, projectName string, projectId int, ref string) error {
 	// Создаем структуру для сохранения данных
-	data := struct {
-		Name      string   `json:"Name"`
-		ID        int      `json:"Id"`
-		Branch    string   `json:"Branch"`
-		FilePaths []string `json:"filePaths"`
-	}{
+	data := &GitlabFilePathsStruct{
 		Name:      projectName,
 		ID:        projectId,
 		Branch:    ref,

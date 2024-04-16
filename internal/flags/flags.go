@@ -123,7 +123,8 @@ func (cfs *FlagSet) checkFlags() error {
 func (cfs *FlagSet) checkGitLabToken(flag Flag) error {
 	token := cfs.GetValueStr(flag)
 	if token == "" {
-		return fmt.Errorf("не указан токен GitLab")
+		fmt.Printf("Не указан токен GitLab\n\n")
+		return nil
 	}
 	return nil
 }

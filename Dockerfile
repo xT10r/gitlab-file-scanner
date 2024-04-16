@@ -18,11 +18,11 @@ RUN mkdir -p /app && mkdir -p /bin
 WORKDIR /app
 COPY . /app
 RUN go mod download \
-    && CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -o /bin/git-file-scanner .
+    && CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -o /bin/gitlab-file-scanner ./cmd
 
 # === Стадия 2: Создание образа приложения ===
 FROM alpine:latest
 RUN apk --no-cache add ca-certificates
-COPY --from=builder /bin/git-file-scanner /app/git-file-scanner
+COPY --from=builder /bin/gitlab-file-scanner /app/gitlab-file-scanner
 WORKDIR /app
-CMD ["./git-file-scanner"]
+CMD ["./gitlab-file-scanner"]

@@ -20,10 +20,12 @@ import (
 	"time"
 )
 
+// Возвращает указатель на строку
 func StringPtr(s string) *string {
 	return &s
 }
 
+// Возвращает указатель на булево
 func BoolPtr(b bool) *bool {
 	return &b
 }
