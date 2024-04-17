@@ -31,12 +31,12 @@ type GitlabFilePathsStruct struct {
 	FilePaths []string `json:"files"`
 }
 
-func SaveFilesListToJSON(exportPath string, data *GitlabFilePathsStruct) error {
+func SaveFilesListToJSON(exportPath string, data *GitlabFilePathsStruct) (string, error) {
 
 	// Преобразуем структуру в JSON
 	jsonData, err := json.MarshalIndent(data, "", "    ")
 	if err != nil {
-		return err
+		return "", err
 	}
 
 	// Генерируем имя файла
@@ -45,7 +45,7 @@ func SaveFilesListToJSON(exportPath string, data *GitlabFilePathsStruct) error {
 	// Создаем директорию для сохранения файла, если она не существует
 	err = os.MkdirAll(exportPath, os.ModePerm)
 	if err != nil {
-		return err
+		return "", err
 	}
 
 	// Полный путь к файлу
@@ -54,18 +54,17 @@ func SaveFilesListToJSON(exportPath string, data *GitlabFilePathsStruct) error {
 	// Создаем файл для записи данных
 	file, err := os.Create(filePath)
 	if err != nil {
-		return err
+		return "", err
 	}
 	defer file.Close()
 
 	// Записываем данные в файл
 	_, err = file.Write(jsonData)
 	if err != nil {
-		return err
+		return "", err
 	}
 
-	fmt.Printf("Список файлов проекта: %s\n", filePath)
-	return nil
+	return filePath, nil
 }
 
 // Функция для фильтрации списка путей файлов по маске

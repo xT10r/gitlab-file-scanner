@@ -42,7 +42,13 @@ func NewGitlabAPI(url, token string) (*gitlabAPI, error) {
 
 func (api *gitlabAPI) GetProjects(projectsLimitCount int, projectIds ...int) ([]*gitlab.Project, error) {
 
-	fmt.Printf("Получение проектов...\n")
+	useProjectIdsFilter := len(projectIds) > 0 && projectIds[0] > 0
+	message := "Получение проектов"
+	if useProjectIdsFilter {
+		message = fmt.Sprintf("%s (с использованием отбора по идентификаторам)", message)
+	}
+
+	fmt.Printf("%s...\n", message)
 
 	listOpts := gitlab.ListOptions{
 		PerPage: 100, // ограничение по количеству проектов на странице
@@ -59,8 +65,7 @@ func (api *gitlabAPI) GetProjects(projectsLimitCount int, projectIds ...int) ([]
 
 	var projects []*gitlab.Project
 
-	if len(projectIds) > 0 && projectIds[0] > 0 {
-		fmt.Printf("Используется фильтр по ID проектов")
+	if useProjectIdsFilter {
 		for _, projectId := range projectIds {
 			project, _, err := api.client.Projects.GetProject(projectId, nil, nil)
 			if err != nil {
@@ -68,39 +73,42 @@ func (api *gitlabAPI) GetProjects(projectsLimitCount int, projectIds ...int) ([]
 			}
 			projects = append(projects, project)
 		}
-		return projects, nil
-	}
 
-	// Переменная для отслеживания количества полученных проектов
-	var receivedProjectsCount int
+	} else {
 
-	// Цикл для получения проектов постранично
-	for {
-		// Получаем список проектов на текущей странице
-		pageProjects, resp, err := api.client.Projects.ListProjects(listProjectOpts)
-		if err != nil {
-			return nil, fmt.Errorf("ошибка при получении проектов: %v", err)
+		// Переменная для отслеживания количества полученных проектов
+		var receivedProjectsCount int
+
+		// Цикл для получения проектов постранично
+		for {
+			// Получаем список проектов на текущей странице
+			pageProjects, resp, err := api.client.Projects.ListProjects(listProjectOpts)
+			if err != nil {
+				return nil, fmt.Errorf("ошибка при получении проектов: %v", err)
+			}
+
+			// Добавляем проекты из текущей страницы к общему списку
+			projects = append(projects, pageProjects...)
+			receivedProjectsCount += len(pageProjects)
+
+			// Если получили нужное количество проектов или достигли последней страницы
+			if receivedProjectsCount >= projectsLimitCount || len(pageProjects) < listOpts.PerPage {
+				break
+			}
+
+			// Устанавливаем следующую страницу для запроса
+			listOpts.Page = resp.NextPage
+			listProjectOpts.ListOptions = listOpts
 		}
 
-		// Добавляем проекты из текущей страницы к общему списку
-		projects = append(projects, pageProjects...)
-		receivedProjectsCount += len(pageProjects)
-
-		// Если получили нужное количество проектов или достигли последней страницы
-		if receivedProjectsCount >= projectsLimitCount || len(pageProjects) < listOpts.PerPage {
-			break
-		}
-
-		// Устанавливаем следующую страницу для запроса
-		listOpts.Page = resp.NextPage
-		listProjectOpts.ListOptions = listOpts
 	}
 
 	fmt.Printf("Проекты получены в количестве %d шт.\n\n", len(projects))
+
 	return projects, nil
 }
 
-func (api *gitlabAPI) GetRepositoryFilePaths(projectId int, ref string) []string {
+func (api *gitlabAPI) GetRepositoryFilePaths(projectId int, ref string) ([]string, error) {
 
 	var wg sync.WaitGroup
 	var files []string
@@ -114,8 +122,7 @@ func (api *gitlabAPI) GetRepositoryFilePaths(projectId int, ref string) []string
 	// Получаем список веток репозитория
 	branches, _, err := api.client.Branches.ListBranches(projectId, nil)
 	if err != nil {
-		fmt.Printf("Ошибка получения списка веток: %v\n", err)
-		return files
+		return nil, fmt.Errorf("ошибка получения списка веток: %v", err)
 	}
 
 	// Проверяем наличие указанной ветки в списке веток репозитория
@@ -127,8 +134,7 @@ func (api *gitlabAPI) GetRepositoryFilePaths(projectId int, ref string) []string
 		}
 	}
 	if !refExists {
-		fmt.Printf("Указанная ветка '%s' отсутствует в репозитории\n", ref)
-		return files
+		return nil, fmt.Errorf("ветка с именем '%s' отсутствует в репозитории", ref)
 	}
 
 	listTreeOpts := &gitlab.ListTreeOptions{
@@ -139,8 +145,7 @@ func (api *gitlabAPI) GetRepositoryFilePaths(projectId int, ref string) []string
 	// Получаем список корневых каталогов репозитория
 	tree, _, err := api.client.Repositories.ListTree(projectId, listTreeOpts)
 	if err != nil {
-		fmt.Printf("Ошибка получения списка файлов: %v\n", err)
-		return files
+		return nil, fmt.Errorf("ошибка получения списка файлов: %v", err)
 	}
 
 	// Сканируем каждый корневой каталог в отдельной горутине
@@ -165,7 +170,7 @@ func (api *gitlabAPI) GetRepositoryFilePaths(projectId int, ref string) []string
 		files = append(files, path)
 	}
 
-	return files
+	return files, nil
 }
 
 func scanDir(client *gitlab.Client, projectId int, ref string, dir *gitlab.TreeNode, resultCh chan<- string, wg *sync.WaitGroup) {

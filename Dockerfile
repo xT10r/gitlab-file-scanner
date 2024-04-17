@@ -25,4 +25,7 @@ FROM alpine:latest
 RUN apk --no-cache add ca-certificates
 COPY --from=builder /bin/gitlab-file-scanner /app/gitlab-file-scanner
 WORKDIR /app
+
 CMD ["./gitlab-file-scanner"]
+
+ENTRYPOINT ["./gitlab-file-scanner"]

@@ -9,7 +9,7 @@ DOCKER_PASSWORD ?= $(shell echo $$DOCKER_REGISTRY_PASSWORD)
 DOCKER_REGISTRY_URL ?= docker.io
 
 # Путь к образу в Docker Registry
-DOCKER_REGISTRY_PATH ?= gitlab
+DOCKER_REGISTRY_PATH ?= $(shell echo $$DOCKER_REGISTRY_PATH)
 
 # Имя образа
 IMAGE_NAME := gitlab-file-scanner
@@ -32,16 +32,17 @@ tests:
 run-test:
 	@mkdir -p $(FILES_LISTS)
 	@$(DOCKER) run --rm -v $(FILES_LISTS):/app/files_lists -e "GITLAB_FILE_SCANNER_SERVER_URL=https://gitlab.com" -e "GITLAB_FILE_SCANNER_BRANCH=main" -e "GITLAB_FILE_SCANNER_PROJECT_ID=56903310" -e "GITLAB_FILE_SCANNER_EXPORT_PATH=$(FILES_LISTS)" $(IMAGE_NAME):$(TAG)
+	@$(DOCKER) run --rm -v $(FILES_LISTS):/app/files_lists -e "GITLAB_FILE_SCANNER_SERVER_URL=https://gitlab.com" -e "GITLAB_FILE_SCANNER_BRANCH=main" -e "GITLAB_FILE_SCANNER_PROJECT_ID=56903311" -e "GITLAB_FILE_SCANNER_EXPORT_PATH=$(FILES_LISTS)" -e "GITLAB_FILE_SCANNER_FILEMASK=*.md" $(IMAGE_NAME):$(TAG)
 
 # Команда для публикации Docker образа в Docker Hub
 push:
-	$(DOCKER_LOGIN)
+	@$(DOCKER_LOGIN) 2>/dev/null
 	$(DOCKER) tag $(IMAGE_NAME):$(TAG) $(DOCKER_REGISTRY_URL)/$(DOCKER_REGISTRY_PATH)/$(IMAGE_NAME):$(TAG)
 	$(DOCKER) push $(DOCKER_REGISTRY_URL)/$(DOCKER_REGISTRY_PATH)/$(IMAGE_NAME):$(TAG)
 
 # Пометить образ как latest и отправить его в Docker Hub
 push-latest:
-	$(DOCKER_LOGIN)
+	@$(DOCKER_LOGIN) 2>/dev/null
 	$(DOCKER) tag $(IMAGE_NAME):$(TAG) $(DOCKER_REGISTRY_URL)/$(DOCKER_REGISTRY_PATH)/$(IMAGE_NAME):latest
 	$(DOCKER) push $(DOCKER_REGISTRY_URL)/$(DOCKER_REGISTRY_PATH)/$(IMAGE_NAME):latest
 

@@ -41,19 +41,23 @@ func Start() error {
 	}
 
 	// Получаем все доступные проекты
+	fmt.Printf("\n[Работа с проектами Gitlab]\n")
 	projects, _ := api.GetProjects(fs.GetValueInt(flags.GitlabUseProjectLimitFlag), fs.GetValueInt(flags.GitlabProjectIdFlag))
 
 	// Получаем пути файлов из проектов с учетом маски
 	projectsTotal := len(projects)
 	for projectIndex, project := range projects {
-		projectNumber := projectIndex + 1
-		fmt.Printf("[%d/%d] Проект: %s (id: %d)\n", projectNumber, projectsTotal, project.Name, project.ID)
-		files := api.GetRepositoryFilePaths(project.ID, fs.GetValue(flags.GitlabBranchFlag))
-		filteredFilePaths := file.FilterFilesByMask(files, fs.GetValue(flags.ExportFilesMaskFlag))
-		fmt.Printf("- общее количество файлов [%d]\n- соответствуют маске [%d]\n", len(files), len(filteredFilePaths))
+		projectNumberStr := fmt.Sprintf("%0*d", len(fmt.Sprintf("%d", projectsTotal)), projectIndex+1)
 
+		files, err := api.GetRepositoryFilePaths(project.ID, fs.GetValue(flags.GitlabBranchFlag))
+		if err != nil {
+			fmt.Printf("%s/%d | %d | %s | %v\n", projectNumberStr, projectsTotal, project.ID, project.Name, err)
+			continue
+		}
+
+		filteredFilePaths := file.FilterFilesByMask(files, fs.GetValue(flags.FilesMaskFlag))
 		if len(filteredFilePaths) == 0 {
-			fmt.Printf("Пропускаем\n---\n")
+			fmt.Printf("%s/%d | %d | %s | %d/%d | не найдено файлов соответствующих заданной маске\n", projectNumberStr, projectsTotal, project.ID, project.Name, len(files), len(filteredFilePaths))
 			continue
 		}
 
@@ -66,12 +70,12 @@ func Start() error {
 			FilePaths: filteredFilePaths,
 		}
 
-		err := file.SaveFilesListToJSON(fs.GetValue(flags.ExportFilesPathFlag), fileData)
+		filePath, err := file.SaveFilesListToJSON(fs.GetValue(flags.ExportFilesPathFlag), fileData)
 		if err != nil {
 			fmt.Printf("Ошибка при сохранении списка файлов: %v\n", err)
 		}
 
-		fmt.Println("---")
+		fmt.Printf("%s/%d | %d | %s | %d/%d | %s\n", projectNumberStr, projectsTotal, project.ID, project.Name, len(files), len(filteredFilePaths), filePath)
 	}
 
 	fmt.Printf("Затрачено времени: %s\n", text.GetDurationString(time.Since(startTime)))

@@ -38,27 +38,32 @@ const (
 	GitlabProjectIdFlag       Flag = "project-id"
 	GitlabUseProjectLimitFlag Flag = "projects-limit"
 	ExportFilesPathFlag       Flag = "export-files-path"
-	ExportFilesMaskFlag       Flag = "export-files-mask"
+	FilesMaskFlag             Flag = "files-mask"
+
+	GitlabProjectsLimitDefault int = 100
 
 	// В случае появления нового флага, добавляем для него запись тут
 )
 
 // Создает новый набор флагов
 func NewFlagSet() (*FlagSet, error) {
+
+	fmt.Printf("\n[Инициализация флагов]\n")
+
 	fs := flag.NewFlagSet("myflags", flag.ErrorHandling(flag.ExitOnError))
 
-	fs.String(string(GitlabApiTokenFlag), os.Getenv("GITLAB_FILE_SCANNER_API_TOKEN"), "Токен GitLab")
-	fs.String(string(GitlabURLFlag), os.Getenv("GITLAB_FILE_SCANNER_SERVER_URL"), "URL-адрес сервера GitLab")
-	fs.String(string(GitlabBranchFlag), os.Getenv("GITLAB_FILE_SCANNER_BRANCH"), "Ветка для получения списка файлов")
+	fs.String(string(GitlabApiTokenFlag), os.Getenv("GITLAB_FILE_SCANNER_API_TOKEN"), "Токен GitLab (GITLAB_FILE_SCANNER_API_TOKEN)")
+	fs.String(string(GitlabURLFlag), os.Getenv("GITLAB_FILE_SCANNER_SERVER_URL"), "URL-адрес сервера GitLab (GITLAB_FILE_SCANNER_SERVER_URL)")
+	fs.String(string(GitlabBranchFlag), os.Getenv("GITLAB_FILE_SCANNER_BRANCH"), "Ветка для получения списка файлов (GITLAB_FILE_SCANNER_BRANCH)")
 
 	projectId, _ := stringToNumber(os.Getenv("GITLAB_FILE_SCANNER_PROJECT_ID"))
-	fs.Int(string(GitlabProjectIdFlag), projectId, "Идентификатор проекта")
+	fs.Int(string(GitlabProjectIdFlag), projectId, "Идентификатор проекта (GITLAB_FILE_SCANNER_PROJECT_ID)")
 
 	projectLimit, _ := stringToNumber(os.Getenv("GITLAB_FILE_SCANNER_PROJECTS_LIMIT"))
-	fs.Int(string(GitlabUseProjectLimitFlag), projectLimit, "Ограничение по количеству проектов (по-умолчанию 100 шт.)")
+	fs.Int(string(GitlabUseProjectLimitFlag), projectLimit, "Ограничение по количеству проектов (GITLAB_FILE_SCANNER_PROJECTS_LIMIT)")
 
-	fs.String(string(ExportFilesPathFlag), os.Getenv("GITLAB_FILE_SCANNER_EXPORT_PATH"), "Путь для выгрузки списка файлов")
-	fs.String(string(ExportFilesMaskFlag), os.Getenv("GITLAB_FILE_SCANNER_FILEMASK"), "Маска файлов")
+	fs.String(string(ExportFilesPathFlag), os.Getenv("GITLAB_FILE_SCANNER_EXPORT_PATH"), "Путь для выгрузки списка файлов (GITLAB_FILE_SCANNER_EXPORT_PATH)")
+	fs.String(string(FilesMaskFlag), os.Getenv("GITLAB_FILE_SCANNER_FILEMASK"), "Маска файлов (GITLAB_FILE_SCANNER_FILEMASK)")
 
 	// В случае появления нового флага, добавляем для него запись тут
 
@@ -122,7 +127,7 @@ func (cfs *FlagSet) checkFlags() error {
 	if err := cfs.checkExportPath(ExportFilesPathFlag); err != nil {
 		return err
 	}
-	if err := cfs.checkFileMask(ExportFilesMaskFlag); err != nil {
+	if err := cfs.checkFileMask(FilesMaskFlag); err != nil {
 		return err
 	}
 	if err := cfs.checkProjectsLimit(GitlabUseProjectLimitFlag); err != nil {
@@ -137,7 +142,7 @@ func (cfs *FlagSet) checkFlags() error {
 func (cfs *FlagSet) checkGitLabToken(flag Flag) error {
 	token := cfs.GetValue(flag)
 	if token == "" {
-		fmt.Printf("Не указан токен GitLab\n\n")
+		fmt.Printf("Не указан токен Gitlab. Возможны ограничения по видимости проектов\n")
 		return nil
 	}
 	return nil
@@ -182,7 +187,9 @@ func (cfs *FlagSet) checkExportPath(flag Flag) error {
 func (cfs *FlagSet) checkFileMask(flag Flag) error {
 
 	if cfs.GetValue(flag) == "" {
-		cfs.SetValue(flag, "*")
+		defaultMask := "*"
+		fmt.Printf("Не задана маска отбора файлов. Используется значение по-умолчанию (%s)\n", defaultMask)
+		cfs.SetValue(flag, defaultMask)
 	}
 
 	mask := cfs.GetValue(flag)
@@ -201,13 +208,7 @@ func (cfs *FlagSet) checkFileMask(flag Flag) error {
 func (cfs *FlagSet) checkProjectsLimit(flag Flag) error {
 
 	if cfs.GetValueInt(flag) == 0 {
-		fmt.Printf("Не задан лимит проектов. Используется значение по-умолчанию\n")
-		cfs.SetValue(flag, "100")
-	}
-
-	projectsLimit := cfs.GetValueInt(flag)
-	if projectsLimit == 0 {
-		return fmt.Errorf("лимит проектов не установлен")
+		fmt.Printf("Не задан лимит проектов. Использовать с осторожностью!\n")
 	}
 
 	return nil
