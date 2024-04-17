@@ -17,10 +17,10 @@ package file
 import (
 	"encoding/json"
 	"fmt"
+	"gitlabFileScanner/internal/text"
 	"os"
 	"path/filepath"
-	"regexp"
-	"strings"
+	"sort"
 )
 
 type GitlabFilePathsStruct struct {
@@ -76,13 +76,13 @@ func FilterFilesByMask(filePaths []string, mask string) []string {
 	}
 
 	// Разделяем маску на отдельные выражения
-	maskParts := strings.Split(mask, "|")
+	maskParts := text.SplitMask(mask)
 
 	// Создаем регулярное выражение для каждой части маски
 	for _, maskPart := range maskParts {
 
 		// Преобразуем маску в регулярное выражение и компилируем его
-		r, err := MaskToFileRegex(maskPart)
+		r, err := text.MaskToFileRegex(maskPart)
 		if err != nil {
 			fmt.Println("Ошибка компиляции регулярного выражения:", err)
 			continue
@@ -97,12 +97,5 @@ func FilterFilesByMask(filePaths []string, mask string) []string {
 		}
 	}
 
-	return filteredFilePaths
-}
-
-func MaskToFileRegex(mask string) (*regexp.Regexp, error) {
-	// Преобразуем маску файла в регулярное выражение
-	regex := strings.ReplaceAll(mask, ".", `\.`) // Экранируем точки
-	regex = strings.ReplaceAll(regex, "*", ".*") // Заменяем "*" на ".*"
-	return regexp.Compile("^" + regex + "$")
+	return sort.StringSlice(filteredFilePaths)
 }

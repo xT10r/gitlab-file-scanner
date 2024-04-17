@@ -42,7 +42,7 @@ func Start() error {
 
 	// Получаем все доступные проекты
 	fmt.Printf("\n[Работа с проектами Gitlab]\n")
-	projects, _ := api.GetProjects(fs.GetValueInt(flags.GitlabUseProjectLimitFlag), fs.GetValueInt(flags.GitlabProjectIdFlag))
+	projects, _ := api.GetProjects(fs.GetValueInt(flags.GitlabProjectsLimitFlag), fs.GetValueInt(flags.GitlabProjectIdFlag))
 
 	// Получаем пути файлов из проектов с учетом маски
 	projectsTotal := len(projects)

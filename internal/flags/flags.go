@@ -17,7 +17,7 @@ package flags
 import (
 	"flag"
 	"fmt"
-	"gitlabFileScanner/internal/file"
+	"gitlabFileScanner/internal/text"
 	"net/url"
 	"os"
 	"strconv"
@@ -32,13 +32,13 @@ type FlagSet struct {
 
 // Enum для флагов флагов
 const (
-	GitlabApiTokenFlag        Flag = "token"
-	GitlabURLFlag             Flag = "url"
-	GitlabBranchFlag          Flag = "branch"
-	GitlabProjectIdFlag       Flag = "project-id"
-	GitlabUseProjectLimitFlag Flag = "projects-limit"
-	ExportFilesPathFlag       Flag = "export-files-path"
-	FilesMaskFlag             Flag = "files-mask"
+	GitlabApiTokenFlag      Flag = "token"
+	GitlabURLFlag           Flag = "url"
+	GitlabBranchFlag        Flag = "branch"
+	GitlabProjectIdFlag     Flag = "project-id"
+	GitlabProjectsLimitFlag Flag = "projects-limit"
+	ExportFilesPathFlag     Flag = "export-files-path"
+	FilesMaskFlag           Flag = "files-mask"
 
 	GitlabProjectsLimitDefault int = 100
 
@@ -60,7 +60,7 @@ func NewFlagSet() (*FlagSet, error) {
 	fs.Int(string(GitlabProjectIdFlag), projectId, "Идентификатор проекта (GITLAB_FILE_SCANNER_PROJECT_ID)")
 
 	projectLimit, _ := stringToNumber(os.Getenv("GITLAB_FILE_SCANNER_PROJECTS_LIMIT"))
-	fs.Int(string(GitlabUseProjectLimitFlag), projectLimit, "Ограничение по количеству проектов (GITLAB_FILE_SCANNER_PROJECTS_LIMIT)")
+	fs.Int(string(GitlabProjectsLimitFlag), projectLimit, "Ограничение по количеству проектов (GITLAB_FILE_SCANNER_PROJECTS_LIMIT)")
 
 	fs.String(string(ExportFilesPathFlag), os.Getenv("GITLAB_FILE_SCANNER_EXPORT_PATH"), "Путь для выгрузки списка файлов (GITLAB_FILE_SCANNER_EXPORT_PATH)")
 	fs.String(string(FilesMaskFlag), os.Getenv("GITLAB_FILE_SCANNER_FILEMASK"), "Маска файлов (GITLAB_FILE_SCANNER_FILEMASK)")
@@ -130,7 +130,7 @@ func (cfs *FlagSet) checkFlags() error {
 	if err := cfs.checkFileMask(FilesMaskFlag); err != nil {
 		return err
 	}
-	if err := cfs.checkProjectsLimit(GitlabUseProjectLimitFlag); err != nil {
+	if err := cfs.checkProjectsLimit(GitlabProjectsLimitFlag); err != nil {
 		return err
 	}
 
@@ -198,7 +198,7 @@ func (cfs *FlagSet) checkFileMask(flag Flag) error {
 	}
 
 	// Преобразование маски файла в регулярное выражение
-	_, err := file.MaskToFileRegex(mask)
+	_, err := text.MaskToFileRegex(mask)
 	if err != nil {
 		return fmt.Errorf("неверный формат маски файлов: %v", err)
 	}
@@ -208,7 +208,8 @@ func (cfs *FlagSet) checkFileMask(flag Flag) error {
 func (cfs *FlagSet) checkProjectsLimit(flag Flag) error {
 
 	if cfs.GetValueInt(flag) == 0 {
-		fmt.Printf("Не задан лимит проектов. Использовать с осторожностью!\n")
+		fmt.Printf("Не задан лимит проектов. Используется значение по-умолчанию (%d)\n", GitlabProjectsLimitDefault)
+		cfs.SetValue(flag, fmt.Sprintf("%d", GitlabProjectsLimitDefault))
 	}
 
 	return nil

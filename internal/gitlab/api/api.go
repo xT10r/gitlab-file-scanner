@@ -50,8 +50,15 @@ func (api *gitlabAPI) GetProjects(projectsLimitCount int, projectIds ...int) ([]
 
 	fmt.Printf("%s...\n", message)
 
+	var perPage int
+	if projectsLimitCount >= 100 {
+		perPage = 100
+	} else {
+		perPage = projectsLimitCount
+	}
+
 	listOpts := gitlab.ListOptions{
-		PerPage: 100, // ограничение по количеству проектов на странице
+		PerPage: perPage, // ограничение по количеству проектов на странице
 		Page:    1,
 		Sort:    "asc",
 	}

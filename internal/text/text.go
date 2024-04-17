@@ -16,6 +16,7 @@ package text
 
 import (
 	"fmt"
+	"regexp"
 	"strings"
 	"time"
 )
@@ -28,6 +29,49 @@ func StringPtr(s string) *string {
 // Возвращает указатель на булево
 func BoolPtr(b bool) *bool {
 	return &b
+}
+
+func MaskToFileRegex(mask string) (*regexp.Regexp, error) {
+
+	// Удаляем пробелы из маски
+	mask = strings.ReplaceAll(mask, " ", "")
+
+	// Преобразуем маску в регулярное выражение
+	regex := strings.ReplaceAll(mask, ".", `\.`)  // Экранируем точки
+	regex = strings.ReplaceAll(regex, "*", ".*")  // Заменяем "*" на ".*"
+	regex = strings.ReplaceAll(regex, "(", "(?:") // Преобразуем открывающиеся скобки в незахватывающие группы
+
+	return regexp.Compile("^" + regex + "$")
+}
+
+func SplitMask(mask string) []string {
+	var parts []string
+	var part strings.Builder
+	var level int
+
+	for _, char := range mask {
+		switch char {
+		case '|':
+			if level == 0 {
+				parts = append(parts, part.String())
+				part.Reset()
+			} else {
+				part.WriteRune(char)
+			}
+		case '(':
+			level++
+			part.WriteRune(char)
+		case ')':
+			level--
+			part.WriteRune(char)
+		default:
+			part.WriteRune(char)
+		}
+	}
+
+	parts = append(parts, part.String())
+
+	return parts
 }
 
 func GetDurationString(duration time.Duration) string {
