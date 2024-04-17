@@ -24,20 +24,14 @@ import (
 )
 
 type GitlabFilePathsStruct struct {
-	Name      string   `json:"Name"`
-	ID        int      `json:"Id"`
-	Branch    string   `json:"Branch"`
-	FilePaths []string `json:"filePaths"`
+	Name      string   `json:"name"`
+	WebURL    string   `json:"web_url"`
+	ID        int      `json:"id"`
+	Branch    string   `json:"branch"`
+	FilePaths []string `json:"files"`
 }
 
-func SaveFilesListToJSON(exportPath string, filePaths []string, projectName string, projectId int, ref string) error {
-	// Создаем структуру для сохранения данных
-	data := &GitlabFilePathsStruct{
-		Name:      projectName,
-		ID:        projectId,
-		Branch:    ref,
-		FilePaths: filePaths,
-	}
+func SaveFilesListToJSON(exportPath string, data *GitlabFilePathsStruct) error {
 
 	// Преобразуем структуру в JSON
 	jsonData, err := json.MarshalIndent(data, "", "    ")
@@ -46,7 +40,7 @@ func SaveFilesListToJSON(exportPath string, filePaths []string, projectName stri
 	}
 
 	// Генерируем имя файла
-	filename := fmt.Sprintf("%d.json", projectId)
+	filename := fmt.Sprintf("%d.json", data.ID)
 
 	// Создаем директорию для сохранения файла, если она не существует
 	err = os.MkdirAll(exportPath, os.ModePerm)
@@ -76,7 +70,11 @@ func SaveFilesListToJSON(exportPath string, filePaths []string, projectName stri
 
 // Функция для фильтрации списка путей файлов по маске
 func FilterFilesByMask(filePaths []string, mask string) []string {
-	var filteredPaths []string
+	var filteredFilePaths []string
+
+	if len(filePaths) == 0 {
+		return filteredFilePaths
+	}
 
 	// Разделяем маску на отдельные выражения
 	maskParts := strings.Split(mask, "|")
@@ -95,12 +93,12 @@ func FilterFilesByMask(filePaths []string, mask string) []string {
 		for _, filePath := range filePaths {
 			fileName := filepath.Base(filePath)
 			if r.MatchString(fileName) {
-				filteredPaths = append(filteredPaths, filePath)
+				filteredFilePaths = append(filteredFilePaths, filePath)
 			}
 		}
 	}
 
-	return filteredPaths
+	return filteredFilePaths
 }
 
 func MaskToFileRegex(mask string) (*regexp.Regexp, error) {

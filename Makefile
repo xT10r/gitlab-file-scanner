@@ -18,13 +18,20 @@ IMAGE_NAME := gitlab-file-scanner
 DOCKER := docker
 DOCKER_LOGIN := $(DOCKER) login -u $(DOCKER_USERNAME) -p $(DOCKER_PASSWORD) $(DOCKER_REGISTRY_URL)
 
+# Путь до каталога временных файлов
+FILES_LISTS="./files_lists"
+
 # Команда для сборки Docker образа
 build:
 	@$(DOCKER) build -t $(IMAGE_NAME):$(TAG) .
 
 # Команда для запуска тестов
-test:
+tests:
 	$(DOCKER) run --rm $(IMAGE_NAME):$(TAG) -test
+
+run-test:
+	@mkdir -p $(FILES_LISTS)
+	@$(DOCKER) run --rm -v $(FILES_LISTS):/app/files_lists -e "GITLAB_FILE_SCANNER_SERVER_URL=https://gitlab.com" -e "GITLAB_FILE_SCANNER_BRANCH=main" -e "GITLAB_FILE_SCANNER_PROJECT_ID=56903310" -e "GITLAB_FILE_SCANNER_EXPORT_PATH=$(FILES_LISTS)" $(IMAGE_NAME):$(TAG)
 
 # Команда для публикации Docker образа в Docker Hub
 push:
@@ -40,4 +47,5 @@ push-latest:
 
 # Удалить Docker образ
 clean:
+	@rm -rf $(FILES_LISTS) 2>/dev/null
 	@$(DOCKER) rmi -f $(IMAGE_NAME):$(TAG) 2>/dev/null

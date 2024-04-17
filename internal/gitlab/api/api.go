@@ -31,7 +31,7 @@ func NewGitlabAPI(url, token string) (*gitlabAPI, error) {
 
 	client, err := gitlab.NewClient(token, gitlab.WithBaseURL(url))
 	if err != nil {
-		return nil, fmt.Errorf("ошибка при создании клиента GitLab:", err)
+		return nil, fmt.Errorf("ошибка при создании клиента GitLab: %v", err)
 	}
 
 	return &gitlabAPI{
@@ -40,22 +40,27 @@ func NewGitlabAPI(url, token string) (*gitlabAPI, error) {
 
 }
 
-func (api *gitlabAPI) GetProjects(projectIds ...int) ([]*gitlab.Project, error) {
+func (api *gitlabAPI) GetProjects(projectsLimitCount int, projectIds ...int) ([]*gitlab.Project, error) {
+
+	fmt.Printf("Получение проектов...\n")
 
 	listOpts := gitlab.ListOptions{
 		PerPage: 100, // ограничение по количеству проектов на странице
+		Page:    1,
+		Sort:    "asc",
 	}
 
 	listProjectOpts := &gitlab.ListProjectsOptions{
 		ListOptions:          listOpts,
 		IncludePendingDelete: text.BoolPtr(false),
 		IncludeHidden:        text.BoolPtr(false),
+		Archived:             text.BoolPtr(false),
 	}
 
 	var projects []*gitlab.Project
 
 	if len(projectIds) > 0 && projectIds[0] > 0 {
-
+		fmt.Printf("Используется фильтр по ID проектов")
 		for _, projectId := range projectIds {
 			project, _, err := api.client.Projects.GetProject(projectId, nil, nil)
 			if err != nil {
@@ -63,15 +68,35 @@ func (api *gitlabAPI) GetProjects(projectIds ...int) ([]*gitlab.Project, error) 
 			}
 			projects = append(projects, project)
 		}
-	} else {
-		p, _, err := api.client.Projects.ListProjects(listProjectOpts)
-		if err != nil {
-			fmt.Println("Ошибка получения проектов:", err)
-			return []*gitlab.Project{}, nil
-		}
-		projects = append(projects, p...)
+		return projects, nil
 	}
 
+	// Переменная для отслеживания количества полученных проектов
+	var receivedProjectsCount int
+
+	// Цикл для получения проектов постранично
+	for {
+		// Получаем список проектов на текущей странице
+		pageProjects, resp, err := api.client.Projects.ListProjects(listProjectOpts)
+		if err != nil {
+			return nil, fmt.Errorf("ошибка при получении проектов: %v", err)
+		}
+
+		// Добавляем проекты из текущей страницы к общему списку
+		projects = append(projects, pageProjects...)
+		receivedProjectsCount += len(pageProjects)
+
+		// Если получили нужное количество проектов или достигли последней страницы
+		if receivedProjectsCount >= projectsLimitCount || len(pageProjects) < listOpts.PerPage {
+			break
+		}
+
+		// Устанавливаем следующую страницу для запроса
+		listOpts.Page = resp.NextPage
+		listProjectOpts.ListOptions = listOpts
+	}
+
+	fmt.Printf("Проекты получены в количестве %d шт.\n\n", len(projects))
 	return projects, nil
 }
 

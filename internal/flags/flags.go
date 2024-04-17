@@ -32,12 +32,13 @@ type FlagSet struct {
 
 // Enum для флагов флагов
 const (
-	GitlabApiTokenFlag  Flag = "token"
-	GitlabURLFlag       Flag = "url"
-	GitlabBranchFlag    Flag = "branch"
-	GitlabProjectIdFlag Flag = "project-id"
-	ExportFilesPathFlag Flag = "export-files-path"
-	ExportFilesMaskFlag Flag = "export-files-mask"
+	GitlabApiTokenFlag        Flag = "token"
+	GitlabURLFlag             Flag = "url"
+	GitlabBranchFlag          Flag = "branch"
+	GitlabProjectIdFlag       Flag = "project-id"
+	GitlabUseProjectLimitFlag Flag = "projects-limit"
+	ExportFilesPathFlag       Flag = "export-files-path"
+	ExportFilesMaskFlag       Flag = "export-files-mask"
 
 	// В случае появления нового флага, добавляем для него запись тут
 )
@@ -52,6 +53,9 @@ func NewFlagSet() (*FlagSet, error) {
 
 	projectId, _ := stringToNumber(os.Getenv("GITLAB_FILE_SCANNER_PROJECT_ID"))
 	fs.Int(string(GitlabProjectIdFlag), projectId, "Идентификатор проекта")
+
+	projectLimit, _ := stringToNumber(os.Getenv("GITLAB_FILE_SCANNER_PROJECTS_LIMIT"))
+	fs.Int(string(GitlabUseProjectLimitFlag), projectLimit, "Ограничение по количеству проектов (по-умолчанию 100 шт.)")
 
 	fs.String(string(ExportFilesPathFlag), os.Getenv("GITLAB_FILE_SCANNER_EXPORT_PATH"), "Путь для выгрузки списка файлов")
 	fs.String(string(ExportFilesMaskFlag), os.Getenv("GITLAB_FILE_SCANNER_FILEMASK"), "Маска файлов")
@@ -75,20 +79,27 @@ func NewFlagSet() (*FlagSet, error) {
 	return cfs, nil
 }
 
+// Возвращает булево значение указанного флага
+func (fs *FlagSet) GetValueBool(flag Flag) bool {
+	value := fs.GetValue(flag)
+	b, _ := stringToBool(value)
+	return b
+}
+
 // Возвращает целочисленное значение указанного флага
 func (fs *FlagSet) GetValueInt(flag Flag) int {
-	value := fs.GetValueStr(flag)
+	value := fs.GetValue(flag)
 	num, _ := stringToNumber(value)
 	return num
 }
 
 // Возвращает строковое значение указанного флага
-func (fs *FlagSet) GetValueStr(flag Flag) string {
+func (fs *FlagSet) GetValue(flag Flag) string {
 	return fs.flags.Lookup(string(flag)).Value.String()
 }
 
 // Записывает строковое значение указанного флага
-func (fs *FlagSet) SetValueStr(flag Flag, value string) error {
+func (fs *FlagSet) SetValue(flag Flag, value string) error {
 	err := fs.flags.Lookup(string(flag)).Value.Set(value)
 	if err != nil {
 		return fmt.Errorf("не удалось установить значение флага: %s", string(flag))
@@ -114,6 +125,9 @@ func (cfs *FlagSet) checkFlags() error {
 	if err := cfs.checkFileMask(ExportFilesMaskFlag); err != nil {
 		return err
 	}
+	if err := cfs.checkProjectsLimit(GitlabUseProjectLimitFlag); err != nil {
+		return err
+	}
 
 	// В случае появления нового флага, добавляем для него проверку тут
 
@@ -121,7 +135,7 @@ func (cfs *FlagSet) checkFlags() error {
 }
 
 func (cfs *FlagSet) checkGitLabToken(flag Flag) error {
-	token := cfs.GetValueStr(flag)
+	token := cfs.GetValue(flag)
 	if token == "" {
 		fmt.Printf("Не указан токен GitLab\n\n")
 		return nil
@@ -130,7 +144,7 @@ func (cfs *FlagSet) checkGitLabToken(flag Flag) error {
 }
 
 func (cfs *FlagSet) checkGitLabURL(flag Flag) error {
-	urlStr := cfs.GetValueStr(flag)
+	urlStr := cfs.GetValue(flag)
 	if urlStr == "" {
 		return fmt.Errorf("не указан URL-адрес сервера GitLab")
 	}
@@ -144,7 +158,7 @@ func (cfs *FlagSet) checkGitLabURL(flag Flag) error {
 }
 
 func (cfs *FlagSet) checkBranch(flag Flag) error {
-	branch := cfs.GetValueStr(flag)
+	branch := cfs.GetValue(flag)
 	if branch == "" {
 		return fmt.Errorf("не указана ветка по-умолчанию")
 	}
@@ -152,7 +166,7 @@ func (cfs *FlagSet) checkBranch(flag Flag) error {
 }
 
 func (cfs *FlagSet) checkExportPath(flag Flag) error {
-	path := cfs.GetValueStr(flag)
+	path := cfs.GetValue(flag)
 	if path == "" {
 		return fmt.Errorf("не указан путь для экспорта списка файлов")
 	}
@@ -167,11 +181,11 @@ func (cfs *FlagSet) checkExportPath(flag Flag) error {
 
 func (cfs *FlagSet) checkFileMask(flag Flag) error {
 
-	if cfs.GetValueStr(flag) == "" {
-		cfs.SetValueStr(flag, "*")
+	if cfs.GetValue(flag) == "" {
+		cfs.SetValue(flag, "*")
 	}
 
-	mask := cfs.GetValueStr(flag)
+	mask := cfs.GetValue(flag)
 	if mask == "" {
 		return fmt.Errorf("маска файла не может быть пустой")
 	}
@@ -184,10 +198,33 @@ func (cfs *FlagSet) checkFileMask(flag Flag) error {
 	return nil
 }
 
+func (cfs *FlagSet) checkProjectsLimit(flag Flag) error {
+
+	if cfs.GetValueInt(flag) == 0 {
+		fmt.Printf("Не задан лимит проектов. Используется значение по-умолчанию\n")
+		cfs.SetValue(flag, "100")
+	}
+
+	projectsLimit := cfs.GetValueInt(flag)
+	if projectsLimit == 0 {
+		return fmt.Errorf("лимит проектов не установлен")
+	}
+
+	return nil
+}
+
 func stringToNumber(s string) (int, error) {
 	num, err := strconv.Atoi(s)
 	if err != nil {
 		return 0, fmt.Errorf("невозможно преобразовать строку в число: %v", err)
 	}
 	return num, nil
+}
+
+func stringToBool(s string) (bool, error) {
+	b, err := strconv.ParseBool(s)
+	if err != nil {
+		return false, fmt.Errorf("невозможно преобразовать строку в булево: %v", err)
+	}
+	return b, nil
 }

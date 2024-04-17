@@ -34,35 +34,44 @@ func Start() error {
 
 	startTime := time.Now()
 
-	api, err := api.NewGitlabAPI(fs.GetValueStr(flags.GitlabURLFlag), fs.GetValueStr(flags.GitlabApiTokenFlag))
+	api, err := api.NewGitlabAPI(fs.GetValue(flags.GitlabURLFlag), fs.GetValue(flags.GitlabApiTokenFlag))
 	if err != nil {
 		return fmt.Errorf("ошибка при создании клиента GitLab: %v", err)
 
 	}
 
 	// Получаем все доступные проекты
-	projects, _ := api.GetProjects(fs.GetValueInt(flags.GitlabProjectIdFlag))
-	fmt.Printf("Получено проектов: %d\n\n", len(projects))
+	projects, _ := api.GetProjects(fs.GetValueInt(flags.GitlabUseProjectLimitFlag), fs.GetValueInt(flags.GitlabProjectIdFlag))
 
-	// Получаем файлы из проектов
-	for _, project := range projects {
-		fmt.Printf("Проект: %s (%d)\n", project.Name, project.ID)
-		files := api.GetRepositoryFilePaths(project.ID, fs.GetValueStr(flags.GitlabBranchFlag))
-		if len(files) == 0 {
-			fmt.Println("---")
+	// Получаем пути файлов из проектов с учетом маски
+	projectsTotal := len(projects)
+	for projectIndex, project := range projects {
+		projectNumber := projectIndex + 1
+		fmt.Printf("[%d/%d] Проект: %s (id: %d)\n", projectNumber, projectsTotal, project.Name, project.ID)
+		files := api.GetRepositoryFilePaths(project.ID, fs.GetValue(flags.GitlabBranchFlag))
+		filteredFilePaths := file.FilterFilesByMask(files, fs.GetValue(flags.ExportFilesMaskFlag))
+		fmt.Printf("- общее количество файлов [%d]\n- соответствуют маске [%d]\n", len(files), len(filteredFilePaths))
+
+		if len(filteredFilePaths) == 0 {
+			fmt.Printf("Пропускаем\n---\n")
 			continue
 		}
 
-		filteredFiles := file.FilterFilesByMask(files, fs.GetValueStr(flags.ExportFilesMaskFlag))
-
-		if len(filteredFiles) > 0 {
-			err := file.SaveFilesListToJSON(fs.GetValueStr(flags.ExportFilesPathFlag), filteredFiles, project.Name, project.ID, fs.GetValueStr(flags.GitlabBranchFlag))
-			if err != nil {
-				fmt.Printf("Ошибка при сохранении списка файлов: %v\n", err)
-			}
+		// Создаем структуру для сохранения данных
+		fileData := &file.GitlabFilePathsStruct{
+			Name:      project.Name,
+			WebURL:    project.WebURL,
+			ID:        project.ID,
+			Branch:    fs.GetValue(flags.GitlabBranchFlag),
+			FilePaths: filteredFilePaths,
 		}
-		fmt.Println("---")
 
+		err := file.SaveFilesListToJSON(fs.GetValue(flags.ExportFilesPathFlag), fileData)
+		if err != nil {
+			fmt.Printf("Ошибка при сохранении списка файлов: %v\n", err)
+		}
+
+		fmt.Println("---")
 	}
 
 	fmt.Printf("Затрачено времени: %s\n", text.GetDurationString(time.Since(startTime)))
