@@ -49,15 +49,20 @@ func Start() error {
 	for projectIndex, project := range projects {
 		projectNumberStr := fmt.Sprintf("%0*d", len(fmt.Sprintf("%d", projectsTotal)), projectIndex+1)
 
+		// Выводим информацию о проекте
+		fmt.Printf("%s/%d | %d | %s", projectNumberStr, projectsTotal, project.ID, project.Name)
+
 		files, err := api.GetRepositoryFilePaths(project.ID, fs.GetValue(flags.GitlabBranchFlag))
 		if err != nil {
-			fmt.Printf("%s/%d | %d | %s | %v\n", projectNumberStr, projectsTotal, project.ID, project.Name, err)
+			// Выводим информацию об ошибке
+			fmt.Printf(" | %v\n", err)
 			continue
 		}
 
 		filteredFilePaths := file.FilterFilesByMask(files, fs.GetValue(flags.FilesMaskFlag))
 		if len(filteredFilePaths) == 0 {
-			fmt.Printf("%s/%d | %d | %s | %d/%d | не найдено файлов соответствующих заданной маске\n", projectNumberStr, projectsTotal, project.ID, project.Name, len(files), len(filteredFilePaths))
+			// Выводим информацию об отсутствии файлов после отбора по маске
+			fmt.Printf(" | %d/%d | не найдено файлов соответствующих заданной маске\n", len(files), len(filteredFilePaths))
 			continue
 		}
 
@@ -75,7 +80,7 @@ func Start() error {
 			fmt.Printf("Ошибка при сохранении списка файлов: %v\n", err)
 		}
 
-		fmt.Printf("%s/%d | %d | %s | %d/%d | %s\n", projectNumberStr, projectsTotal, project.ID, project.Name, len(files), len(filteredFilePaths), filePath)
+		fmt.Printf(" | %d/%d | %s\n", len(files), len(filteredFilePaths), filePath)
 	}
 
 	fmt.Printf("Затрачено времени: %s\n", text.GetDurationString(time.Since(startTime)))

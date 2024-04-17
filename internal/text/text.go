@@ -16,7 +16,9 @@ package text
 
 import (
 	"fmt"
+	"path/filepath"
 	"regexp"
+	"sort"
 	"strings"
 	"time"
 )
@@ -72,6 +74,13 @@ func SplitMask(mask string) []string {
 	parts = append(parts, part.String())
 
 	return parts
+}
+
+// не используется
+func SortFilePaths(filePaths []string) {
+	sort.SliceStable(filePaths, func(i, j int) bool {
+		return filepath.Base(filePaths[i]) < filepath.Base(filePaths[j])
+	})
 }
 
 func GetDurationString(duration time.Duration) string {

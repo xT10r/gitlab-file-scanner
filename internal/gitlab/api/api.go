@@ -115,16 +115,12 @@ func (api *gitlabAPI) GetProjects(projectsLimitCount int, projectIds ...int) ([]
 	return projects, nil
 }
 
+// GetRepositoryFilePaths получает все пути файлов в репозитории для заданной ветки.
 func (api *gitlabAPI) GetRepositoryFilePaths(projectId int, ref string) ([]string, error) {
 
 	var wg sync.WaitGroup
 	var files []string
-
-	// Буферизованный канал для передачи результатов сканирования
-	resultCh := make(chan string, 100)
-
-	// Переменная для подсчета активных горутин
-	var activeGoroutines sync.WaitGroup
+	var mu sync.Mutex // Общий мьютекс для защиты доступа к общему ресурсу (files).
 
 	// Получаем список веток репозитория
 	branches, _, err := api.client.Branches.ListBranches(projectId, nil)
@@ -144,72 +140,69 @@ func (api *gitlabAPI) GetRepositoryFilePaths(projectId int, ref string) ([]strin
 		return nil, fmt.Errorf("ветка с именем '%s' отсутствует в репозитории", ref)
 	}
 
-	listTreeOpts := &gitlab.ListTreeOptions{
-		Ref:  text.StringPtr(ref),
-		Path: text.StringPtr("/"),
-	}
+	// Семафор для ограничения количества горутин
+	semaphore := make(chan struct{}, 50)
 
-	// Получаем список корневых каталогов репозитория
-	tree, _, err := api.client.Repositories.ListTree(projectId, listTreeOpts)
-	if err != nil {
-		return nil, fmt.Errorf("ошибка получения списка файлов: %v", err)
-	}
+	// Функция для сканирования каталога
+	var scanDir func(string)
 
-	// Сканируем каждый корневой каталог в отдельной горутине
-	for _, dir := range tree {
-		wg.Add(1)
-		activeGoroutines.Add(1)
-		go func(dir *gitlab.TreeNode) {
-			defer activeGoroutines.Done()
-			scanDir(api.client, projectId, ref, dir, resultCh, &wg)
-		}(dir)
-	}
+	scanDir = func(path string) {
 
-	// Запускаем горутину для ожидания завершения всех задач сканирования
-	go func() {
-		wg.Wait()
-		close(resultCh)
-		activeGoroutines.Wait()
-	}()
+		defer wg.Done()
+		defer func() { <-semaphore }() // Освобождаем слот
 
-	// Собираем пути файлов из канала
-	for path := range resultCh {
-		files = append(files, path)
-	}
+		semaphore <- struct{}{} // Захватываем слот
 
-	return files, nil
-}
+		// Получаем содержимое каталога постранично
+		var page int = 1
+		for {
 
-func scanDir(client *gitlab.Client, projectId int, ref string, dir *gitlab.TreeNode, resultCh chan<- string, wg *sync.WaitGroup) {
-	defer wg.Done()
-	var mu sync.Mutex
+			listOpts := gitlab.ListOptions{
+				Page:    page,
+				PerPage: 100,
+				Sort:    "asc",
+			}
 
-	// Для случая, когда текущий элемент дерева является файлом
-	if dir.Type == "blob" {
-		mu.Lock()
-		resultCh <- dir.Path
-		mu.Unlock()
-		return
-	}
+			listTreeOpts := &gitlab.ListTreeOptions{
+				Ref:         text.StringPtr(ref),
+				Path:        text.StringPtr(path),
+				ListOptions: listOpts,
+			}
 
-	// Получаем содержимое каталога
-	tree, _, err := client.Repositories.ListTree(projectId, &gitlab.ListTreeOptions{
-		Ref:  text.StringPtr(ref),
-		Path: &dir.Path,
-	})
-	if err != nil {
-		fmt.Println("Ошибка при получении содержимого каталога:", err)
-		return
-	}
-	// Перебираем файлы в каталоге и добавляем их путь в канал resultCh
-	for _, file := range tree {
-		if file.Type == "blob" {
-			mu.Lock()
-			resultCh <- file.Path // Отправляем результат сканирования
-			mu.Unlock()
-		} else if file.Type == "tree" {
-			wg.Add(1)
-			go scanDir(client, projectId, ref, file, resultCh, wg) // Отправляем задачу сканирования дочернего каталога
+			tree, resp, err := api.client.Repositories.ListTree(projectId, listTreeOpts)
+			if err != nil {
+				fmt.Printf("Ошибка при получении содержимого каталога '%s': %v\n", path, err)
+				return
+			}
+
+			// Перебираем элементы в каталоге
+			for _, item := range tree {
+				itemType := item.Type
+				itemPath := item.Path
+				if itemType == "blob" { // Если элемент - файл
+					mu.Lock()
+					files = append(files, itemPath)
+					mu.Unlock()
+				} else if itemType == "tree" { // Если элемент - каталог
+					wg.Add(1)
+					go func() {
+						scanDir(itemPath) // Рекурсивно сканируем подкаталоги
+					}()
+				}
+			}
+
+			// Проверяем, есть ли еще страницы
+			if resp.CurrentPage >= resp.TotalPages {
+				break
+			}
+			page++
 		}
 	}
+
+	// Сканируем корневой каталог
+	wg.Add(1)
+	go scanDir("/")
+
+	wg.Wait() // Ожидаем завершения всех горутин
+	return files, nil
 }
