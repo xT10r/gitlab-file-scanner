@@ -56,7 +56,7 @@ func SaveFilesListToJSON(exportPath string, data *GitlabFilePathsStruct) (string
 	if err != nil {
 		return "", err
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 
 	// Записываем данные в файл
 	_, err = file.Write(jsonData)

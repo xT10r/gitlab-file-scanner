@@ -105,7 +105,7 @@ func GetDurationString(duration time.Duration) string {
 		parts = append(parts, pluralize(seconds, "секунда", "секунды", "секунд"))
 	}
 
-	return fmt.Sprintf("%s", strings.Join(parts, " "))
+	return strings.Join(parts, " ")
 }
 
 func pluralize(count int, form1, form2, form5 string) string {

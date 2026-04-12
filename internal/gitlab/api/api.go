@@ -193,17 +193,16 @@ func (api *gitlabAPI) GetRepositoryFilePaths(projectId int, ref string) ([]strin
 
 			// Перебираем элементы в каталоге
 			for _, item := range tree {
-				itemType := item.Type
-				itemPath := item.Path
-				if itemType == "blob" { // Если элемент - файл
+				switch item.Type {
+				case "blob": // Файл
 					mu.Lock()
-					files = append(files, itemPath)
+					files = append(files, item.Path)
 					mu.Unlock()
-				} else if itemType == "tree" { // Если элемент - каталог
+				case "tree": // Каталог
 					wg.Add(1)
-					go func() {
-						scanDir(itemPath) // Рекурсивно сканируем подкаталоги
-					}()
+					go func(itemPath string) {
+						scanDir(itemPath)
+					}(item.Path)
 				}
 			}
 

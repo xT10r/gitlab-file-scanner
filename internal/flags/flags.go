@@ -189,7 +189,7 @@ func (cfs *FlagSet) checkFileMask(flag Flag) error {
 	if cfs.GetValue(flag) == "" {
 		defaultMask := "*"
 		fmt.Printf("Не задана маска отбора файлов. Используется значение по-умолчанию (%s)\n", defaultMask)
-		cfs.SetValue(flag, defaultMask)
+		_ = cfs.SetValue(flag, defaultMask)
 	}
 
 	mask := cfs.GetValue(flag)
@@ -209,7 +209,7 @@ func (cfs *FlagSet) checkProjectsLimit(flag Flag) error {
 
 	if cfs.GetValueInt(flag) == 0 {
 		fmt.Printf("Не задан лимит проектов. Используется значение по-умолчанию (%d)\n", GitlabProjectsLimitDefault)
-		cfs.SetValue(flag, fmt.Sprintf("%d", GitlabProjectsLimitDefault))
+		_ = cfs.SetValue(flag, fmt.Sprintf("%d", GitlabProjectsLimitDefault))
 	}
 
 	return nil
