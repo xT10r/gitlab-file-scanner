@@ -12,102 +12,134 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// Package app wires dependencies and runs the application.
 package app
 
 import (
 	"context"
 	"fmt"
+	"os"
 	"os/signal"
+	"strconv"
 	"syscall"
-	"time"
 
-	"gitlabFileScanner/internal/file"
-	"gitlabFileScanner/internal/flags"
-	"gitlabFileScanner/internal/gitlab/api"
-	"gitlabFileScanner/internal/text"
+	"gitlabFileScanner/internal/domain"
+	"gitlabFileScanner/internal/infrastructure/consolelog"
+	"gitlabFileScanner/internal/infrastructure/filefilter"
+	fs "gitlabFileScanner/internal/infrastructure/filesystem"
+	"gitlabFileScanner/internal/infrastructure/gitlab"
+	"gitlabFileScanner/internal/usecase/scanner"
 )
 
+// Start is the application entry point.
 func Start() error {
-
-	// Настройка обработки сигналов для graceful shutdown
 	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer cancel()
 
 	go func() {
 		<-ctx.Done()
-		fmt.Printf("\nПолучен сигнал завершения. Остановка...\n")
+		fmt.Println("\nShutting down...")
 	}()
 
-	// Получение флагов и их парсинг
-	fs, err := flags.NewFlagSet()
+	cfg, err := loadConfig()
 	if err != nil {
 		return err
 	}
 
-	startTime := time.Now()
+	logger := consolelog.New()
 
-	apiClient, err := api.NewGitlabAPI(ctx, fs.GetValue(flags.GitlabURLFlag), fs.GetValue(flags.GitlabApiTokenFlag))
+	logger.Info("\n[Configuration]\n")
+	logger.Info("Server URL: %s", cfg.GitLabURL)
+	if cfg.GitLabToken != "" {
+		logger.Info("API Token: set")
+	} else {
+		logger.Warn("API Token not set — project visibility may be limited")
+	}
+	logger.Info("Branch: %s", cfg.GitLabBranch)
+	logger.Info("Export Path: %s", cfg.ExportPath)
+	logger.Info("Files Mask: %s", cfg.FilesMask)
+	logger.Info("Projects Limit: %d", cfg.ProjectsLimit)
+	if len(cfg.ProjectIDs) > 0 {
+		logger.Info("Project IDs: %v", cfg.ProjectIDs)
+	}
+
+	client, err := gitlab.NewClient(ctx, cfg.GitLabURL, cfg.GitLabToken)
 	if err != nil {
-		return fmt.Errorf("ошибка при создании клиента GitLab: %v", err)
-
+		return fmt.Errorf("creating GitLab client: %w", err)
 	}
 
-	// Получаем все доступные проекты
-	fmt.Printf("\n[Работа с проектами Gitlab]\n")
-	projects, err := apiClient.GetProjects(fs.GetValueInt(flags.GitlabProjectsLimitFlag), fs.GetValueInt(flags.GitlabProjectIdFlag))
+	svc := scanner.New(
+		client,
+		filefilter.New(),
+		fs.NewWriter(),
+		logger,
+		cfg,
+	)
+
+	results, err := svc.Run(ctx)
 	if err != nil {
-		return fmt.Errorf("ошибка при получении проектов: %v", err)
+		return fmt.Errorf("scan failed: %w", err)
 	}
 
-	// Получаем пути файлов из проектов с учетом маски
-	projectsTotal := len(projects)
-	for projectIndex, project := range projects {
-		// Проверяем контекст перед обработкой каждого проекта
-		select {
-		case <-ctx.Done():
-			fmt.Printf("\nОперация отменена. Обработано %d/%d проектов.\n", projectIndex, projectsTotal)
-			return ctx.Err()
-		default:
+	// Summary
+	errors := 0
+	for _, r := range results {
+		if r.Err != nil {
+			errors++
 		}
-
-		projectNumberStr := fmt.Sprintf("%0*d", len(fmt.Sprintf("%d", projectsTotal)), projectIndex+1)
-
-		// Выводим информацию о проекте
-		fmt.Printf("%s/%d | %d | %s", projectNumberStr, projectsTotal, project.ID, project.Name)
-
-		files, err := apiClient.GetRepositoryFilePaths(int(project.ID), fs.GetValue(flags.GitlabBranchFlag))
-		if err != nil {
-			// Выводим информацию об ошибке
-			fmt.Printf(" | %v\n", err)
-			continue
-		}
-
-		filteredFilePaths := file.FilterFilesByMask(files, fs.GetValue(flags.FilesMaskFlag))
-		if len(filteredFilePaths) == 0 {
-			// Выводим информацию об отсутствии файлов после отбора по маске
-			fmt.Printf(" | %d/%d | не найдено файлов соответствующих заданной маске\n", len(files), len(filteredFilePaths))
-			continue
-		}
-
-		// Создаем структуру для сохранения данных
-		fileData := &file.GitlabFilePathsStruct{
-			Name:      project.Name,
-			WebURL:    project.WebURL,
-			ID:        project.ID,
-			Branch:    fs.GetValue(flags.GitlabBranchFlag),
-			FilePaths: filteredFilePaths,
-		}
-
-		filePath, err := file.SaveFilesListToJSON(fs.GetValue(flags.ExportFilesPathFlag), fileData)
-		if err != nil {
-			fmt.Printf("Ошибка при сохранении списка файлов: %v\n", err)
-		}
-
-		fmt.Printf(" | %d/%d | %s\n", len(files), len(filteredFilePaths), filePath)
 	}
-
-	fmt.Printf("Затрачено времени: %s\n", text.GetDurationString(time.Since(startTime)))
+	if errors > 0 {
+		logger.Info("\n%d/%d projects had errors", errors, len(results))
+	}
 
 	return nil
+}
 
+func loadConfig() (domain.Config, error) {
+	cfg := domain.DefaultConfig()
+
+	cfg.GitLabURL = getEnv("GITLAB_FILE_SCANNER_SERVER_URL")
+	cfg.GitLabToken = getEnv("GITLAB_FILE_SCANNER_API_TOKEN")
+	cfg.GitLabBranch = getEnvOr("GITLAB_FILE_SCANNER_BRANCH", "main")
+	cfg.ExportPath = getEnv("GITLAB_FILE_SCANNER_EXPORT_PATH")
+
+	if v := getEnv("GITLAB_FILE_SCANNER_PROJECTS_LIMIT"); v != "" {
+		n, err := strconv.Atoi(v)
+		if err != nil {
+			return cfg, fmt.Errorf("invalid projects limit: %w", err)
+		}
+		cfg.ProjectsLimit = n
+	}
+
+	if v := getEnv("GITLAB_FILE_SCANNER_PROJECT_ID"); v != "" {
+		n, err := strconv.Atoi(v)
+		if err != nil {
+			return cfg, fmt.Errorf("invalid project ID: %w", err)
+		}
+		cfg.ProjectIDs = []int{n}
+	}
+
+	if v := getEnv("GITLAB_FILE_SCANNER_FILEMASK"); v != "" {
+		cfg.FilesMask = v
+	}
+
+	if cfg.GitLabURL == "" {
+		return cfg, fmt.Errorf("GITLAB_FILE_SCANNER_SERVER_URL is required")
+	}
+	if cfg.ExportPath == "" {
+		return cfg, fmt.Errorf("GITLAB_FILE_SCANNER_EXPORT_PATH is required")
+	}
+
+	return cfg, nil
+}
+
+func getEnv(key string) string {
+	return os.Getenv(key)
+}
+
+func getEnvOr(key, def string) string {
+	if v := os.Getenv(key); v != "" {
+		return v
+	}
+	return def
 }
