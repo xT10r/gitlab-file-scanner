@@ -6,7 +6,7 @@
 git clone https://github.com/xT10r/gitlab-file-scanner.git
 cd gitlab-file-scanner
 make install-hooks    # git hook для проверки коммитов
-go test ./tests/... -v
+go test ./test/... -v
 go build -o gitlab-file-scanner ./cmd
 ```
 
@@ -73,10 +73,10 @@ test(file): add FilterFilesByMask test cases
 
 ```bash
 # Запустить всё
-go test ./tests/... -v
+go test ./test/... -v
 
 # С покрытием
-go test -coverprofile=coverage.out ./tests/...
+go test -coverprofile=coverage.out ./test/...
 go tool cover -html=coverage.out
 ```
 

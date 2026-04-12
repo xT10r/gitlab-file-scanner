@@ -25,7 +25,7 @@ lint → test → security → build
 ### Тесты
 
 ```bash
-go test -race -coverprofile=coverage.out -v ./tests/...
+go test -race -coverprofile=coverage.out -v ./test/...
 ```
 
 Флаг `-race` ищет состояния гонки. Coverage сохраняется как артефакт на 30 дней.

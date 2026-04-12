@@ -89,7 +89,7 @@ the official GitLab API client.
 ## Pull Request Guidelines
 
 1. One PR = one logical change
-2. All tests must pass: `go test ./tests/... -v`
+2. All tests must pass: `go test ./test/... -v`
 3. Code must build: `go build ./cmd`
 4. Update tests for new/changed functionality
 5. Use draft PRs for work-in-progress
@@ -98,7 +98,7 @@ the official GitLab API client.
 
 ```bash
 # Run tests
-go test ./tests/... -v
+go test ./test/... -v
 
 # Build binary
 go build -o gitlab-file-scanner ./cmd
