@@ -15,19 +15,21 @@
 package api
 
 import (
+	"context"
 	"fmt"
 	"sync"
 
 	"gitlabFileScanner/internal/text"
 
-	"github.com/xanzy/go-gitlab"
+	"gitlab.com/gitlab-org/api/client-go"
 )
 
 type gitlabAPI struct {
 	client *gitlab.Client
+	ctx    context.Context
 }
 
-func NewGitlabAPI(url, token string) (*gitlabAPI, error) {
+func NewGitlabAPI(ctx context.Context, url, token string) (*gitlabAPI, error) {
 
 	client, err := gitlab.NewClient(token, gitlab.WithBaseURL(url))
 	if err != nil {
@@ -36,6 +38,7 @@ func NewGitlabAPI(url, token string) (*gitlabAPI, error) {
 
 	return &gitlabAPI{
 		client: client,
+		ctx:    ctx,
 	}, nil
 
 }
@@ -50,11 +53,11 @@ func (api *gitlabAPI) GetProjects(projectsLimitCount int, projectIds ...int) ([]
 
 	fmt.Printf("%s...\n", message)
 
-	var perPage int
+	var perPage int64
 	if projectsLimitCount >= 100 {
 		perPage = 100
 	} else {
-		perPage = projectsLimitCount
+		perPage = int64(projectsLimitCount)
 	}
 
 	listOpts := gitlab.ListOptions{
@@ -99,7 +102,7 @@ func (api *gitlabAPI) GetProjects(projectsLimitCount int, projectIds ...int) ([]
 			receivedProjectsCount += len(pageProjects)
 
 			// Если получили нужное количество проектов или достигли последней страницы
-			if receivedProjectsCount >= projectsLimitCount || len(pageProjects) < listOpts.PerPage {
+			if receivedProjectsCount >= projectsLimitCount || int64(len(pageProjects)) < listOpts.PerPage {
 				break
 			}
 
@@ -117,6 +120,13 @@ func (api *gitlabAPI) GetProjects(projectsLimitCount int, projectIds ...int) ([]
 
 // GetRepositoryFilePaths получает все пути файлов в репозитории для заданной ветки.
 func (api *gitlabAPI) GetRepositoryFilePaths(projectId int, ref string) ([]string, error) {
+
+	// Проверяем контекст перед началом работы
+	select {
+	case <-api.ctx.Done():
+		return nil, api.ctx.Err()
+	default:
+	}
 
 	var wg sync.WaitGroup
 	var files []string
@@ -154,7 +164,7 @@ func (api *gitlabAPI) GetRepositoryFilePaths(projectId int, ref string) ([]strin
 		semaphore <- struct{}{} // Захватываем слот
 
 		// Получаем содержимое каталога постранично
-		var page int = 1
+		var page int64 = 1
 		for {
 
 			listOpts := gitlab.ListOptions{
@@ -172,6 +182,12 @@ func (api *gitlabAPI) GetRepositoryFilePaths(projectId int, ref string) ([]strin
 			tree, resp, err := api.client.Repositories.ListTree(projectId, listTreeOpts)
 			if err != nil {
 				fmt.Printf("Ошибка при получении содержимого каталога '%s': %v\n", path, err)
+				return
+			}
+
+			// Проверяем, что resp не nil
+			if resp == nil {
+				fmt.Printf("Пустой ответ для каталога '%s'\n", path)
 				return
 			}
 

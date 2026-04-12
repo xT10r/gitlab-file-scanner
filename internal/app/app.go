@@ -15,7 +15,10 @@
 package app
 
 import (
+	"context"
 	"fmt"
+	"os/signal"
+	"syscall"
 	"time"
 
 	"gitlabFileScanner/internal/file"
@@ -26,6 +29,15 @@ import (
 
 func Start() error {
 
+	// Настройка обработки сигналов для graceful shutdown
+	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	defer cancel()
+
+	go func() {
+		<-ctx.Done()
+		fmt.Printf("\nПолучен сигнал завершения. Остановка...\n")
+	}()
+
 	// Получение флагов и их парсинг
 	fs, err := flags.NewFlagSet()
 	if err != nil {
@@ -34,7 +46,7 @@ func Start() error {
 
 	startTime := time.Now()
 
-	api, err := api.NewGitlabAPI(fs.GetValue(flags.GitlabURLFlag), fs.GetValue(flags.GitlabApiTokenFlag))
+	apiClient, err := api.NewGitlabAPI(ctx, fs.GetValue(flags.GitlabURLFlag), fs.GetValue(flags.GitlabApiTokenFlag))
 	if err != nil {
 		return fmt.Errorf("ошибка при создании клиента GitLab: %v", err)
 
@@ -42,17 +54,28 @@ func Start() error {
 
 	// Получаем все доступные проекты
 	fmt.Printf("\n[Работа с проектами Gitlab]\n")
-	projects, _ := api.GetProjects(fs.GetValueInt(flags.GitlabProjectsLimitFlag), fs.GetValueInt(flags.GitlabProjectIdFlag))
+	projects, err := apiClient.GetProjects(fs.GetValueInt(flags.GitlabProjectsLimitFlag), fs.GetValueInt(flags.GitlabProjectIdFlag))
+	if err != nil {
+		return fmt.Errorf("ошибка при получении проектов: %v", err)
+	}
 
 	// Получаем пути файлов из проектов с учетом маски
 	projectsTotal := len(projects)
 	for projectIndex, project := range projects {
+		// Проверяем контекст перед обработкой каждого проекта
+		select {
+		case <-ctx.Done():
+			fmt.Printf("\nОперация отменена. Обработано %d/%d проектов.\n", projectIndex, projectsTotal)
+			return ctx.Err()
+		default:
+		}
+
 		projectNumberStr := fmt.Sprintf("%0*d", len(fmt.Sprintf("%d", projectsTotal)), projectIndex+1)
 
 		// Выводим информацию о проекте
 		fmt.Printf("%s/%d | %d | %s", projectNumberStr, projectsTotal, project.ID, project.Name)
 
-		files, err := api.GetRepositoryFilePaths(project.ID, fs.GetValue(flags.GitlabBranchFlag))
+		files, err := apiClient.GetRepositoryFilePaths(int(project.ID), fs.GetValue(flags.GitlabBranchFlag))
 		if err != nil {
 			// Выводим информацию об ошибке
 			fmt.Printf(" | %v\n", err)

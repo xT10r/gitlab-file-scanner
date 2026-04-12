@@ -112,11 +112,21 @@ func pluralize(count int, form1, form2, form5 string) string {
 	if count == 0 {
 		return ""
 	}
-	if count == 1 {
+	abs := count
+	if abs < 0 {
+		abs = -abs
+	}
+	lastDigit := abs % 10
+	lastTwoDigits := abs % 100
+
+	switch {
+	case lastTwoDigits >= 11 && lastTwoDigits <= 14:
+		return fmt.Sprintf("%d %s", count, form5)
+	case lastDigit == 1:
 		return fmt.Sprintf("%d %s", count, form1)
-	}
-	if count >= 2 && count <= 4 {
+	case lastDigit >= 2 && lastDigit <= 4:
 		return fmt.Sprintf("%d %s", count, form2)
+	default:
+		return fmt.Sprintf("%d %s", count, form5)
 	}
-	return fmt.Sprintf("%d %s", count, form5)
 }

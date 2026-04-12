@@ -26,7 +26,7 @@ import (
 type GitlabFilePathsStruct struct {
 	Name      string   `json:"name"`
 	WebURL    string   `json:"web_url"`
-	ID        int      `json:"id"`
+	ID        int64    `json:"id"`
 	Branch    string   `json:"branch"`
 	FilePaths []string `json:"files"`
 }
@@ -97,5 +97,6 @@ func FilterFilesByMask(filePaths []string, mask string) []string {
 		}
 	}
 
-	return sort.StringSlice(filteredFilePaths)
+	sort.Strings(filteredFilePaths)
+	return filteredFilePaths
 }

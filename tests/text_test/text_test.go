@@ -71,7 +71,6 @@ func TestGetDurationString(t *testing.T) {
 			Duration:    5 * time.Hour,
 			Expected:    "5 часов",
 		},
-		// Добавьте другие тестовые случаи здесь по необходимости
 	}
 
 	for _, tc := range testCases {
