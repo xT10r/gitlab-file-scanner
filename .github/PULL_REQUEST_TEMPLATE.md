@@ -6,14 +6,14 @@
 
 <!-- Check the relevant box -->
 
-- [ ] 🆕 `feat` — New feature
-- [ ] 🐛 `fix` — Bug fix
-- [ ] ♻️  `refactor` — Code refactoring
-- [ ] 📝 `docs` — Documentation update
-- [ ] 🧪 `test` — Test changes
-- [ ] 🔧 `chore` — Maintenance / config
-- [ ] 🚀 `ci` — CI/CD pipeline
-- [ ] 📦 `build` — Build system / dependencies
+- [ ] 🆕 `feat` - New feature
+- [ ] 🐛 `fix` - Bug fix
+- [ ] ♻️  `refactor` - Code refactoring
+- [ ] 📝 `docs` - Documentation update
+- [ ] 🧪 `test` - Test changes
+- [ ] 🔧 `chore` - Maintenance / config
+- [ ] 🚀 `ci` - CI/CD pipeline
+- [ ] 📦 `build` - Build system / dependencies
 
 ## Scope
 

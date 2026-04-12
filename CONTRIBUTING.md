@@ -29,23 +29,23 @@ Use the package or module name as the scope:
 
 | Scope      | Description                      |
 |------------|----------------------------------|
-| `app`      | `internal/app` — main logic      |
-| `flags`    | `internal/flags` — CLI flags     |
-| `api`      | `internal/gitlab/api` — GitLab   |
-| `file`     | `internal/file` — file ops       |
-| `text`     | `internal/text` — utilities      |
-| `cmd`      | `cmd/` — entry point             |
+| `app`      | `internal/app` - main logic      |
+| `flags`    | `internal/flags` - CLI flags     |
+| `api`      | `internal/gitlab/api` - GitLab   |
+| `file`     | `internal/file` - file ops       |
+| `text`     | `internal/text` - utilities      |
+| `cmd`      | `cmd/` - entry point             |
 | `docker`   | Dockerfile                       |
 | `ci`       | Makefile, CI config              |
 | `deps`     | Dependencies (go.mod)            |
 
 ### Description Rules
 
-1. **English only** — all descriptions in English
-2. **Imperative mood** — "add" not "added" or "adds"
+1. **English only** - all descriptions in English
+2. **Imperative mood** - "add" not "added" or "adds"
 3. **No period** at the end
 4. **Lowercase** first letter (type handles casing)
-5. **Be specific** — describe WHAT changed, not HOW
+5. **Be specific** - describe WHAT changed, not HOW
 
 ### Examples
 
