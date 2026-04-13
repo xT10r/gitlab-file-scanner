@@ -48,17 +48,49 @@ go test -race -coverprofile=coverage.out -v ./test/...
 
 ## Релиз
 
-При создании тега `v1.2.3` запускается GoReleaser:
+### Процесс релиза
 
-```bash
-git tag v1.2.3 && git push origin v1.2.3
+#### Шаг 1: Подготовить CHANGELOG
+
+Заменить `[Unreleased]` на версию с датой и добавить новый пустой блок сверху:
+
+```markdown
+## [Unreleased]
+
+### Added
+- (новые фичи после релиза)
+
+## [v1.0.0] - 2026-04-13
+
+### Added
+- (фичи релиза)
 ```
 
-Он:
-1. Собирает бинарники для всех платформ
-2. Создаёт архивы (tar.gz для Linux/macOS, zip для Windows)
-3. Генерирует `checksums.txt` (SHA256)
-4. Создаёт GitHub Release с changelog из коммитов
+```bash
+git add CHANGELOG.md
+git commit -m "chore(ci): prepare CHANGELOG for v1.0.0 release"
+```
+
+#### Шаг 2: Создать тег
+
+```bash
+git tag v1.0.0
+git push origin v1.0.0
+```
+
+#### Шаг 3: CI делает остальное
+
+Автоматически запустится `release.yml`:
+1. GoReleaser соберёт бинарники для всех платформ
+2. Создаст архивы (tar.gz для Linux/macOS, zip для Windows)
+   - Имя без `v`: `gitlab-file-scanner_1.0.0_linux_amd64.tar.gz`
+3. Сгенерирует `checksums.txt` (SHA256)
+4. Создаст GitHub Release с changelog из коммитов
+
+`docker.yml` запушит образ с тремя тегами:
+- `1.0.0` — точная версия (продакшен)
+- `1.0` — minor (авто-обновление патчей)
+- `latest` — последний релиз
 
 ### Changelog в релизе
 

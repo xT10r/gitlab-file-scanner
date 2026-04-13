@@ -13,17 +13,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - GitHub Actions CI/CD pipelines (ci, release, docker workflows)
 - GoReleaser configuration for cross-platform releases
 - Pull request template
-- Unit tests with mocks for usecase layer
-- Edge case tests for strutil, file, flags, and usecase
+- Unit tests with thread-safe mocks for usecase layer
+- Edge case tests for strutil, filefilter, filesystem, consolelog, and usecase
 - Dockerfile with tini for proper signal handling
 - Graceful shutdown via `SIGINT`/`SIGTERM`
-- Conventional Commits validation hook
+- Conventional Commits validation
 - Documentation guides (`docs/CI-CD.md`, `docs/DEVELOPMENT.md`)
+- Logger level constants (`LevelDebug`, `LevelInfo`, `LevelWarn`, `LevelError`)
+- `Debug()` method to logger interface
 
 ### Changed
 
 - Migrated from `github.com/xanzy/go-gitlab` to `gitlab.com/gitlab-org/api/client-go`
-- Upgraded to Go 1.26
+- Upgraded to Go 1.26 (1.26.2 required for CVE fixes)
 - Renamed `tests/` to `test/` (Go standard)
 - Renamed `internal/text/` to `internal/strutil/`
 - CLI flag methods: `GetValue()` → `Value()`, `GetValueInt()` → `Int()`
@@ -32,13 +34,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- Pluralization for Russian numbers 11–14, 111–114
+- **CRITICAL**: Goroutine leak in `scanRepository` (semaphore acquired before defer)
+- **HIGH**: Duplicate files in filter results when masks overlap
+- **HIGH**: Pluralization for Russian numbers 11–14, 111–114
+- **MEDIUM**: Format string panic when log message contains `%` without args
+- **MEDIUM**: Regex injection via unescaped `[`, `]`, `\`, `+`, `?`, `{`, `}`, `^`, `$`
+- **MEDIUM**: Race conditions in mock implementations (added `sync.RWMutex`)
 - `sort.StringSlice` → `sort.Strings` (was not sorting)
 - Ignored error from `GetProjects()` in app.go
 - Potential nil dereference in `scanDir` response handling
 - Closure capture bug in concurrent directory scanning
 - CRLF line endings in `go.sum` breaking CI
-- golangci-lint issues: errcheck, staticcheck
+- Duration output: `[1d 2h]` → `1d 2h` (`fmt.Sprintf` → `strings.Join`)
 
 ### Removed
 
