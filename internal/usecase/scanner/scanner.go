@@ -18,6 +18,7 @@ package scanner
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"gitlabFileScanner/internal/domain"
@@ -151,5 +152,5 @@ func (s *Service) durationString(d time.Duration) string {
 	if len(parts) == 0 {
 		return "0s"
 	}
-	return fmt.Sprintf("%s", parts)
+	return strings.Join(parts, " ")
 }

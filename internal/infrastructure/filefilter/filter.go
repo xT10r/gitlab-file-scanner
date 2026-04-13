@@ -30,13 +30,14 @@ func New() *Filter {
 	return &Filter{}
 }
 
-// Apply filters file paths by the given mask.
+// Apply filters file paths by the given mask, deduplicating results.
 func (f *Filter) Apply(filePaths []string, mask string) []string {
 	if len(filePaths) == 0 {
 		return nil
 	}
 
 	maskParts := strutil.SplitMask(mask)
+	seen := make(map[string]struct{})
 	var filtered []string
 
 	for _, part := range maskParts {
@@ -46,7 +47,10 @@ func (f *Filter) Apply(filePaths []string, mask string) []string {
 		}
 		for _, p := range filePaths {
 			if re.MatchString(filepath.Base(p)) {
-				filtered = append(filtered, p)
+				if _, ok := seen[p]; !ok {
+					seen[p] = struct{}{}
+					filtered = append(filtered, p)
+				}
 			}
 		}
 	}
