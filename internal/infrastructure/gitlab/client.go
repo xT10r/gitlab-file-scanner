@@ -138,10 +138,9 @@ func (c *Client) scanRepository(projectID int, ref string) ([]string, error) {
 
 	var scanDir func(string)
 	scanDir = func(path string) {
-		defer wg.Done()
-		defer func() { <-semaphore }()
-
 		semaphore <- struct{}{}
+		defer func() { <-semaphore }()
+		defer wg.Done()
 
 		page := int64(1)
 		for {
