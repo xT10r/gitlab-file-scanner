@@ -50,14 +50,3 @@ push-latest:
 clean:
 	@rm -rf $(FILES_LISTS) 2>/dev/null
 	@$(DOCKER) rmi -f $(IMAGE_NAME):$(TAG) 2>/dev/null
-
-# Установить git hook для валидации коммитов
-install-hooks:
-	@cp .husky/commit-msg .git/hooks/commit-msg
-	@chmod +x .git/hooks/commit-msg
-	@echo "Commit hook installed successfully"
-
-# Удалить git hook
-uninstall-hooks:
-	@rm -f .git/hooks/commit-msg
-	@echo "Commit hook removed"

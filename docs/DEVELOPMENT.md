@@ -5,7 +5,6 @@
 ```bash
 git clone https://github.com/xT10r/gitlab-file-scanner.git
 cd gitlab-file-scanner
-make install-hooks    # git hook для проверки коммитов
 go test ./test/... -v
 go build -o gitlab-file-scanner ./cmd
 ```
@@ -91,7 +90,8 @@ make push        # опубликовать
 ## Полезные команды
 
 ```bash
-make install-hooks     # установить git hook
-make uninstall-hooks   # удалить git hook
-make tests             # запустить тесты в Docker
+make build       # собрать образ
+make run-test    # запустить тестовый сценарий
+make push        # опубликовать
+make tests       # запустить тесты в Docker
 ```

@@ -102,7 +102,4 @@ go test ./test/... -v
 
 # Build binary
 go build -o gitlab-file-scanner ./cmd
-
-# Install commit hook
-make install-hooks
 ```
