@@ -1,7 +1,7 @@
 #syntax=docker/dockerfile:1.12
 
 # Стадия 1: Сборка ===
-FROM golang:1.26 as builder
+FROM golang:1.26 AS builder
 RUN mkdir -p /app && mkdir -p /bin
 WORKDIR /app
 COPY . /app
