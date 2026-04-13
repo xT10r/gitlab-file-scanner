@@ -100,7 +100,7 @@ func (c *Client) listProjects(limit int) ([]domain.Project, error) {
 			break
 		}
 
-		opts.ListOptions.Page = resp.NextPage
+		opts.Page = resp.NextPage
 	}
 
 	return projects, nil
