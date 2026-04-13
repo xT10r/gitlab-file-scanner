@@ -17,6 +17,14 @@ package consolelog
 
 import "fmt"
 
+// Log level prefixes.
+const (
+	LevelDebug = "DEBUG: "
+	LevelInfo  = "INFO: "
+	LevelWarn  = "WARN: "
+	LevelError = "ERROR: "
+)
+
 // Logger writes to stdout.
 type Logger struct{}
 
@@ -26,25 +34,36 @@ func New() *Logger {
 }
 
 func (l *Logger) Info(msg string, args ...any) {
+	prefix := LevelInfo
 	if len(args) > 0 {
-		fmt.Printf(msg+"\n", args...)
+		fmt.Printf(prefix+msg+"\n", args...)
 	} else {
-		fmt.Println(msg)
+		fmt.Print(prefix + msg + "\n")
+	}
+}
+
+// Debug logs a debug message.
+func (l *Logger) Debug(msg string, args ...any) {
+	prefix := LevelDebug
+	if len(args) > 0 {
+		fmt.Printf(prefix+msg+"\n", args...)
+	} else {
+		fmt.Print(prefix + msg + "\n")
 	}
 }
 
 func (l *Logger) Error(msg string, args ...any) {
 	if len(args) > 0 {
-		fmt.Printf("ERROR: "+msg+"\n", args...)
+		fmt.Printf(LevelError+msg+"\n", args...)
 	} else {
-		fmt.Println("ERROR: " + msg)
+		fmt.Print(LevelError + msg + "\n")
 	}
 }
 
 func (l *Logger) Warn(msg string, args ...any) {
 	if len(args) > 0 {
-		fmt.Printf("WARN: "+msg+"\n", args...)
+		fmt.Printf(LevelWarn+msg+"\n", args...)
 	} else {
-		fmt.Println("WARN: " + msg)
+		fmt.Print(LevelWarn + msg + "\n")
 	}
 }

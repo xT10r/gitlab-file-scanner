@@ -44,7 +44,19 @@ func BoolPtr(b bool) *bool {
 func MaskToFileRegex(mask string) (*regexp.Regexp, error) {
 	mask = strings.ReplaceAll(mask, " ", "")
 
-	regex := strings.ReplaceAll(mask, ".", `\.`)
+	// Escape all regex meta-characters except *, |, (, )
+	regex := strings.ReplaceAll(mask, `\`, `\\`)
+	regex = strings.ReplaceAll(regex, `[`, `\[`)
+	regex = strings.ReplaceAll(regex, `]`, `\]`)
+	regex = strings.ReplaceAll(regex, `+`, `\+`)
+	regex = strings.ReplaceAll(regex, `?`, `\?`)
+	regex = strings.ReplaceAll(regex, `{`, `\{`)
+	regex = strings.ReplaceAll(regex, `}`, `\}`)
+	regex = strings.ReplaceAll(regex, `^`, `\^`)
+	regex = strings.ReplaceAll(regex, `$`, `\$`)
+
+	// Now apply glob patterns
+	regex = strings.ReplaceAll(regex, ".", `\.`)
 	regex = strings.ReplaceAll(regex, "*", ".*")
 	regex = strings.ReplaceAll(regex, "(", "(?:")
 
