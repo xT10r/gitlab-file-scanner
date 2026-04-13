@@ -15,37 +15,49 @@
 // Package mock provides test doubles for domain interfaces.
 package mock
 
-import "gitlabFileScanner/internal/domain"
+import (
+	"sync"
+
+	"gitlabFileScanner/internal/domain"
+)
 
 // Scanner is a mock implementation of domain.Scanner.
 type Scanner struct {
+	mu             sync.RWMutex
 	Projects       []domain.Project
 	Files          []string
 	ProjectsErr    error
 	FilesErr       error
-	GetProjectsCalled  bool
+	GetProjectsCalled bool
 	GetFilesCalled   bool
 }
 
 func (m *Scanner) GetProjects(limit int, ids ...int) ([]domain.Project, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
 	m.GetProjectsCalled = true
 	return m.Projects, m.ProjectsErr
 }
 
 func (m *Scanner) GetFilePaths(projectID int64, branch string) ([]string, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
 	m.GetFilesCalled = true
 	return m.Files, m.FilesErr
 }
 
 // Filter is a mock implementation of domain.Filter.
 type Filter struct {
-	Result    []string
+	mu          sync.RWMutex
+	Result      []string
 	ApplyCalled bool
 	LastMask    string
 	LastPaths   []string
 }
 
 func (m *Filter) Apply(filePaths []string, mask string) []string {
+	m.mu.Lock()
+	defer m.mu.Unlock()
 	m.ApplyCalled = true
 	m.LastMask = mask
 	m.LastPaths = filePaths
@@ -57,13 +69,16 @@ func (m *Filter) Apply(filePaths []string, mask string) []string {
 
 // Exporter is a mock implementation of domain.Exporter.
 type Exporter struct {
-	SavedPath string
-	SaveErr   error
-	SaveData  *domain.FileList
+	mu         sync.RWMutex
+	SavedPath  string
+	SaveErr    error
+	SaveData   *domain.FileList
 	SaveCalled bool
 }
 
 func (m *Exporter) Save(path string, data *domain.FileList) (string, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
 	m.SaveCalled = true
 	m.SaveData = data
 	return m.SavedPath, m.SaveErr
@@ -71,19 +86,33 @@ func (m *Exporter) Save(path string, data *domain.FileList) (string, error) {
 
 // Logger is a mock implementation of domain.Logger.
 type Logger struct {
-	InfoCalls   []string
-	ErrorCalls  []string
-	WarnCalls   []string
+	mu           sync.RWMutex
+	DebugCalls   []string
+	InfoCalls    []string
+	WarnCalls    []string
+	ErrorCalls   []string
+}
+
+func (l *Logger) Debug(msg string, args ...any) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	l.DebugCalls = append(l.DebugCalls, msg)
 }
 
 func (l *Logger) Info(msg string, args ...any) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
 	l.InfoCalls = append(l.InfoCalls, msg)
 }
 
-func (l *Logger) Error(msg string, args ...any) {
-	l.ErrorCalls = append(l.ErrorCalls, msg)
+func (l *Logger) Warn(msg string, args ...any) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	l.WarnCalls = append(l.WarnCalls, msg)
 }
 
-func (l *Logger) Warn(msg string, args ...any) {
-	l.WarnCalls = append(l.WarnCalls, msg)
+func (l *Logger) Error(msg string, args ...any) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	l.ErrorCalls = append(l.ErrorCalls, msg)
 }
