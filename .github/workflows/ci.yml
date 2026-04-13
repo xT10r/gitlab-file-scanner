@@ -78,7 +78,7 @@ jobs:
         run: go mod download
 
       - name: Run tests
-        run: go test -race -coverprofile=coverage.out -v ./tests/...
+        run: go test -race -coverprofile=coverage.out -v ./test/...
 
       - name: Upload coverage
         uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08 # v4.6.0

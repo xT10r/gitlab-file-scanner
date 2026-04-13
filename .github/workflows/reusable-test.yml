@@ -11,7 +11,7 @@ on:
       test-pattern:
         description: "Test pattern (go test ./...)"
         required: false
-        default: "./tests/..."
+        default: "./test/..."
         type: string
     outputs:
       coverage:
