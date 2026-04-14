@@ -48,9 +48,8 @@ jobs:
         run: go mod download
 
       - name: Extract Release Notes
-        uses: ffurrer2/extract-release-notes@v2
-        with:
-          prerelease_suffix: ""
+        run: |
+          awk '/^## \[v'"${GITHUB_REF#refs/tags/}"'\]/{flag=1;next}/^## \[/{flag=0}flag' CHANGELOG.md > release_notes.md
 
       - name: Run GoReleaser
         uses: goreleaser/goreleaser-action@v6

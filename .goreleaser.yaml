@@ -49,7 +49,7 @@ release:
   draft: false
   prerelease: auto
   mode: replace
-  name_template: "{{ .Version }}"
+  name_template: "v{{ .Version }}"
   header: ""
 
 changelog:
