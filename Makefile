@@ -50,3 +50,11 @@ push-latest:
 clean:
 	@rm -rf $(FILES_LISTS) 2>/dev/null
 	@$(DOCKER) rmi -f $(IMAGE_NAME):$(TAG) 2>/dev/null
+
+# Проверить заголовки лицензий (для CI)
+license-check:
+	@go run github.com/google/addlicense@latest -check -f HEADER $$(find . -name "*.go" -not -path "./vendor/*")
+
+# Применить заголовки лицензий (локально)
+license-fix:
+	@go run github.com/google/addlicense@latest -f HEADER $$(find . -name "*.go" -not -path "./vendor/*")

@@ -51,6 +51,9 @@ jobs:
       - name: Run go vet
         run: go vet ./...
 
+      - name: Check license headers
+        run: make license-check
+
       - name: Run golangci-lint
         uses: golangci/golangci-lint-action@1481404843c368bc19ca9406f87d6e0fc97bdcfd # v7.0.0
         with:
