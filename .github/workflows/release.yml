@@ -51,6 +51,12 @@ jobs:
         run: |
           awk '/^## \[v'"${GITHUB_REF#refs/tags/}"'\]/{flag=1;next}/^## \[/{flag=0}flag' CHANGELOG.md > release_notes.md
 
+      - name: Debug Release Notes
+        run: |
+          echo "--- Contents of release_notes.md ---"
+          cat release_notes.md
+          echo "--- End of contents ---"
+
       - name: Run GoReleaser
         uses: goreleaser/goreleaser-action@v6
         with:
