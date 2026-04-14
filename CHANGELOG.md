@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+### Changed
+
+### Fixed
+
+## [v1.0.0] - 2026-04-14
+
+### Added
+
 - Clean Architecture with domain/usecase/infrastructure layers
 - GitHub Actions CI/CD pipelines (ci, release, docker workflows)
 - GoReleaser configuration for cross-platform releases
@@ -21,6 +29,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Documentation guides (`docs/CI-CD.md`, `docs/DEVELOPMENT.md`)
 - Logger level constants (`LevelDebug`, `LevelInfo`, `LevelWarn`, `LevelError`)
 - `Debug()` method to logger interface
+- License header check in CI (`HEADER` file, `make license-check`)
 
 ### Changed
 
@@ -53,4 +62,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Dead code in `internal/gitlab/api/api.go`
 - Unused `SortFilePaths` function
 
-[Unreleased]: https://github.com/xT10r/gitlab-file-scanner/compare/v0.1.0...HEAD
+[v1.0.0]: https://github.com/xT10r/gitlab-file-scanner/releases/tag/v1.0.0
