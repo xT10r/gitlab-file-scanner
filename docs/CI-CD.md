@@ -1,0 +1,131 @@
+# CI/CD
+
+Проект собирает и тестирует GitHub Actions. Все workflow - в `.github/workflows/`.
+
+## Файлы
+
+| Файл | За что отвечает | Когда запускается |
+|------|----------------|-------------------|
+| `ci.yml` | Линтер, тесты, security, сборка | push, PR |
+| `release.yml` | GoReleaser → GitHub Releases | тег `v*` |
+| `docker.yml` | Docker build + push | push, тег |
+
+## Порядок выполнения в CI
+
+```
+lint → test → security → build
+```
+
+Если линтер упал - дальше не пойдёт. Если тесты не прошли - сборка не запустится.
+
+### Линтер
+
+Запускает `go mod tidy`, `go vet` и `golangci-lint`. Если `go mod tidy` что-то меняет - CI упадёт с подсказкой запустить его локально.
+
+### Тесты
+
+```bash
+go test -race -coverprofile=coverage.out -v ./test/...
+```
+
+Флаг `-race` ищет состояния гонки. Coverage сохраняется как артефакт на 30 дней.
+
+### Security
+
+`govulncheck` сканирует зависимости на известные уязвимости.
+
+### Сборка
+
+Кросс-компиляция для всех платформ:
+
+| OS | amd64 | arm64 |
+|----|:-----:|:-----:|
+| Linux | ✅ | ✅ |
+| macOS | ✅ | ✅ |
+| Windows | ✅ | ✅ |
+
+Каждый бинарник - статический (`CGO_ENABLED=0`), без отладочных символов (`-ldflags="-s -w"`).
+
+## Релиз
+
+### Процесс релиза
+
+#### Шаг 1: Подготовить CHANGELOG
+
+Заменить `[Unreleased]` на версию с датой и добавить новый пустой блок сверху:
+
+```markdown
+## [Unreleased]
+
+### Added
+- (новые фичи после релиза)
+
+## [v1.0.0] - 2026-04-13
+
+### Added
+- (фичи релиза)
+```
+
+```bash
+git add CHANGELOG.md
+git commit -m "chore(ci): prepare CHANGELOG for v1.0.0 release"
+```
+
+#### Шаг 2: Создать тег
+
+```bash
+git tag v1.0.0
+git push origin v1.0.0
+```
+
+#### Шаг 3: CI делает остальное
+
+Автоматически запустится `release.yml`:
+1. GoReleaser соберёт бинарники для всех платформ
+2. Создаст архивы (tar.gz для Linux/macOS, zip для Windows)
+   - Имя без `v`: `gitlab-file-scanner_1.0.0_linux_amd64.tar.gz`
+3. Сгенерирует `checksums.txt` (SHA256)
+4. Создаст GitHub Release с changelog из коммитов
+
+`docker.yml` запушит образ с тремя тегами:
+- `1.0.0` — точная версия (продакшен)
+- `1.0` — minor (авто-обновление патчей)
+- `latest` — последний релиз
+
+### Changelog в релизе
+
+Автоматически из Conventional Commits:
+- `feat(...)` → Features
+- `fix(...)` → Bug Fixes
+- `refactor(...)` → Refactoring
+
+Коммиты `docs:`, `chore:`, `ci:` не попадают в changelog.
+
+## Docker
+
+### Теги образов
+
+| Событие | Теги |
+|---------|------|
+| PR | `pr-<номер>`, `<sha>` |
+| Push в ветку | `<ветка>`, `<sha>` |
+| Тег `v1.2.3` | `1.2.3`, `1.2`, `latest` |
+
+### Платформы
+
+- `linux/amd64`
+- `linux/arm64`
+
+### Секреты
+
+Нужно настроить в GitHub Settings → Secrets and variables → Actions:
+
+| Секрет | Что туда |
+|--------|----------|
+| `DOCKER_REGISTRY_USERNAME` | Логин Docker Hub |
+| `DOCKER_REGISTRY_PASSWORD` | Токен/пароль |
+| `DOCKER_REGISTRY_PATH` | Namespace, например `xt10r` |
+
+## Ручной запуск
+
+Всё можно запустить вручную из вкладки **Actions** на GitHub.

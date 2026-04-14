@@ -1,0 +1,73 @@
+# GoReleaser configuration for gitlab-file-scanner
+# https://goreleaser.com
+version: 2
+
+project_name: gitlab-file-scanner
+
+builds:
+  - id: default
+    main: ./cmd
+    binary: gitlab-file-scanner
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - darwin
+      - windows
+    goarch:
+      - amd64
+      - arm64
+    ldflags:
+      - -s -w
+      - -X main.version={{.Version}}
+      - -X main.commit={{.Commit}}
+      - -X main.date={{.Date}}
+
+archives:
+  - id: default
+    format: tar.gz
+    name_template: >-
+      {{ .ProjectName }}_
+      {{- trimPrefix .Version "v" }}_
+      {{- .Os }}_
+      {{- .Arch }}
+    format_overrides:
+      - goos: windows
+        format: zip
+    files:
+      - LICENSE
+      - README.md
+
+checksum:
+  name_template: 'checksums.txt'
+  algorithm: sha256
+
+release:
+  github:
+    owner: xT10r
+    name: gitlab-file-scanner
+  draft: false
+  prerelease: auto
+  mode: replace
+  name_template: "{{.ProjectName}} v{{.Version}}"
+
+changelog:
+  sort: asc
+  use: github
+  filters:
+    exclude:
+      - "^docs:"
+      - "^chore:"
+      - "^ci:"
+      - "^test:"
+      - "^build:"
+  groups:
+    - title: Features
+      regexp: "^feat.*"
+      order: 0
+    - title: Bug Fixes
+      regexp: "^fix.*"
+      order: 1
+    - title: Refactoring
+      regexp: "^refactor.*"
+      order: 2
