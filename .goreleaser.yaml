@@ -28,7 +28,7 @@ archives:
     format: tar.gz
     name_template: >-
       {{ .ProjectName }}_
-      {{- .Version | replace "v" "" }}_
+      {{- .Version }}_
       {{- .Os }}_
       {{- .Arch }}
     format_overrides:
@@ -50,24 +50,7 @@ release:
   prerelease: auto
   mode: replace
   name_template: "{{.ProjectName}} v{{.Version}}"
+  header: ""
 
 changelog:
-  sort: asc
-  use: github
-  filters:
-    exclude:
-      - "^docs:"
-      - "^chore:"
-      - "^ci:"
-      - "^test:"
-      - "^build:"
-  groups:
-    - title: Features
-      regexp: "^feat.*"
-      order: 0
-    - title: Bug Fixes
-      regexp: "^fix.*"
-      order: 1
-    - title: Refactoring
-      regexp: "^refactor.*"
-      order: 2
+  disable: true
