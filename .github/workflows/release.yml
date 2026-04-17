@@ -139,13 +139,15 @@ jobs:
           test -d dist
           test -f dist/checksums.txt
 
-          mapfile -t ARCHIVES < <(find dist -maxdepth 1 -type f \( -name '*.tar.gz' -o -name '*.zip' \) | sort)
+          cd dist
+
+          mapfile -t ARCHIVES < <(find . -maxdepth 1 -type f \( -name '*.tar.gz' -o -name '*.zip' \) | sort)
           test "${#ARCHIVES[@]}" -gt 0 || {
             echo "::error::No release archives were produced."
             exit 1
           }
 
-          sha256sum -c dist/checksums.txt
+          sha256sum -c checksums.txt
 
           echo "Produced archives:"
           printf ' - %s\n' "${ARCHIVES[@]}"
