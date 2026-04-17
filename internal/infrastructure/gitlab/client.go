@@ -107,10 +107,11 @@ func (c *Client) listProjects(limit int) ([]domain.Project, error) {
 }
 
 func (c *Client) scanRepository(projectID int, ref string) ([]string, error) {
-	select {
-	case <-c.ctx.Done():
-		return nil, c.ctx.Err()
-	default:
+	ctx, cancel := context.WithCancel(c.ctx)
+	defer cancel()
+
+	if err := ctx.Err(); err != nil {
+		return nil, err
 	}
 
 	branches, _, err := c.gl.Branches.ListBranches(projectID, nil)
@@ -134,16 +135,27 @@ func (c *Client) scanRepository(projectID int, ref string) ([]string, error) {
 		mu        sync.Mutex
 		files     []string
 		semaphore = make(chan struct{}, 50)
+		errOnce   sync.Once
+		firstErr  error
 	)
 
 	var scanDir func(string)
 	scanDir = func(path string) {
-		semaphore <- struct{}{}
-		defer func() { <-semaphore }()
 		defer wg.Done()
+
+		select {
+		case <-ctx.Done():
+			return
+		case semaphore <- struct{}{}:
+		}
+		defer func() { <-semaphore }()
 
 		page := int64(1)
 		for {
+			if err := ctx.Err(); err != nil {
+				return
+			}
+
 			tree, resp, err := c.gl.Repositories.ListTree(projectID, &gitlab.ListTreeOptions{
 				Ref:  strutil.StringPtr(ref),
 				Path: strutil.StringPtr(path),
@@ -153,13 +165,25 @@ func (c *Client) scanRepository(projectID int, ref string) ([]string, error) {
 				},
 			})
 			if err != nil {
+				errOnce.Do(func() {
+					firstErr = fmt.Errorf("listing repository tree (path=%q page=%d): %w", path, page, err)
+					cancel()
+				})
 				return
 			}
 			if resp == nil {
+				errOnce.Do(func() {
+					firstErr = fmt.Errorf("listing repository tree (path=%q page=%d): nil response", path, page)
+					cancel()
+				})
 				return
 			}
 
 			for _, item := range tree {
+				if err := ctx.Err(); err != nil {
+					return
+				}
+
 				switch item.Type {
 				case "blob":
 					mu.Lock()
@@ -183,6 +207,14 @@ func (c *Client) scanRepository(projectID int, ref string) ([]string, error) {
 	wg.Add(1)
 	go scanDir("/")
 	wg.Wait()
+
+	if firstErr != nil {
+		return nil, firstErr
+	}
+
+	if len(files) == 0 {
+		return nil, domain.ErrNoFilesFound
+	}
 
 	return files, nil
 }

@@ -1,4 +1,4 @@
-// Copyright 2024 Alex Dobshikov
+// Copyright 2026 Alex Dobshikov
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,10 +12,31 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package main
+package cli
 
-import "gitlabFileScanner/internal/cli"
+type OutputFormat string
 
-func main() {
-	cli.Execute()
+const (
+	FormatText OutputFormat = "text"
+	FormatJSON OutputFormat = "json"
+)
+
+type GlobalOptions struct {
+	Format OutputFormat
+}
+
+func parseGlobalOptions(args []string) (GlobalOptions, []string) {
+	opts := GlobalOptions{Format: FormatText}
+	var filtered []string
+
+	for _, a := range args {
+		switch a {
+		case "--json", "-json":
+			opts.Format = FormatJSON
+		default:
+			filtered = append(filtered, a)
+		}
+	}
+
+	return opts, filtered
 }

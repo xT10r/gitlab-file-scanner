@@ -7,6 +7,7 @@ git clone https://github.com/xT10r/gitlab-file-scanner.git
 cd gitlab-file-scanner
 go test ./test/... -v
 go build -o gitlab-file-scanner ./cmd
+./gitlab-file-scanner scan --url https://gitlab.com --branch main --export-files-path ./output
 ```
 
 ## Коммиты
@@ -85,6 +86,7 @@ go tool cover -html=coverage.out
 make build       # собрать образ
 make run-test    # запустить тестовый сценарий
 make push        # опубликовать
+make test-race-docker # прогнать go test -race ./... в Docker
 ```
 
 ## Полезные команды
@@ -93,5 +95,6 @@ make push        # опубликовать
 make build       # собрать образ
 make run-test    # запустить тестовый сценарий
 make push        # опубликовать
-make tests       # запустить тесты в Docker
+make tests       # запустить go test ./... локально
+make test-race-docker # прогнать race-тесты в Linux-контейнере
 ```

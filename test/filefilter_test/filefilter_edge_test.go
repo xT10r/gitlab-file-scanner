@@ -25,7 +25,7 @@ func TestFilter_Deduplication(t *testing.T) {
 
 	f := filefilter.New()
 
-	// Маска с пересекающимися паттернами — один файл может совпасть дважды
+	// Маска с пересекающимися паттернами - один файл может совпасть дважды
 	result := f.Apply(
 		[]string{"main.go", "README.md"},
 		"*.go|*.go", // дубликат маски
@@ -41,7 +41,7 @@ func TestFilter_Deduplication_OverlappingMasks(t *testing.T) {
 
 	f := filefilter.New()
 
-	// *.go и *go — оба совпадут с main.go
+	// *.go и *go - оба совпадут с main.go
 	result := f.Apply(
 		[]string{"main.go", "test.go", "README.md"},
 		"*.go|*go",
@@ -57,7 +57,7 @@ func TestFilter_RegexSpecialChars(t *testing.T) {
 
 	f := filefilter.New()
 
-	// [ ] должны экранироваться — не быть character class
+	// [ ] должны экранироваться - не быть character class
 	result := f.Apply(
 		[]string{"test[0].go", "t.go", "e.go", "s.go"},
 		"test[0].go",

@@ -8,31 +8,30 @@ on:
     branches: [develop, main]
     paths:
       - "Dockerfile"
-      - "**.go"
+      - "**/*.go"
       - "go.mod"
       - "go.sum"
+      - ".github/workflows/docker.yml"
+      - ".github/workflows/ci.yml"
   workflow_dispatch:
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: docker-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 permissions:
   contents: read
 
 env:
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
   IMAGE_NAME: gitlab-file-scanner
   DOCKER_REGISTRY_URL: docker.io
 
 jobs:
-  # ──────────────────────────────────────────────
-  # Docker Build (always)
-  # ──────────────────────────────────────────────
-  build:
-    name: Docker Build
+  smoke:
+    name: Docker Smoke Build
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -43,6 +42,7 @@ jobs:
         with:
           images: ${{ env.DOCKER_REGISTRY_URL }}/${{ secrets.DOCKER_REGISTRY_PATH }}/${{ env.IMAGE_NAME }}
           tags: |
+            type=sha,format=short,prefix=sha-
             type=ref,event=branch
             type=ref,event=pr
             type=semver,pattern={{version}}
@@ -54,21 +54,80 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Login to Docker Hub
-        if: github.event_name != 'pull_request'
-        uses: docker/login-action@v3
-        with:
-          username: ${{ secrets.DOCKER_REGISTRY_USERNAME }}
-          password: ${{ secrets.DOCKER_REGISTRY_PASSWORD }}
-          registry: ${{ env.DOCKER_REGISTRY_URL }}
-
-      - name: Build and push
+      - name: Build local smoke image
+        id: build-smoke
         uses: docker/build-push-action@v6
         with:
           context: .
-          push: ${{ github.event_name != 'pull_request' }}
+          load: true
+          push: false
+          tags: local/${{ env.IMAGE_NAME }}:smoke
+          labels: ${{ steps.meta.outputs.labels }}
+          platforms: linux/amd64
+          cache-from: type=gha,scope=docker-smoke
+          cache-to: type=gha,mode=max,scope=docker-smoke
+
+      - name: Smoke run container
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker run --rm local/${IMAGE_NAME}:smoke --help >/dev/null 2>&1 \
+            || docker run --rm local/${IMAGE_NAME}:smoke version >/dev/null 2>&1 \
+            || docker run --rm local/${IMAGE_NAME}:smoke --version >/dev/null 2>&1
+
+  publish:
+    name: Docker Publish
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    needs: [smoke]
+    if: github.event_name != 'pull_request'
+
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Docker meta
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.DOCKER_REGISTRY_URL }}/${{ secrets.DOCKER_REGISTRY_PATH }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=sha,format=short,prefix=sha-
+            type=ref,event=branch
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.DOCKER_REGISTRY_URL }}
+          username: ${{ secrets.DOCKER_REGISTRY_USERNAME }}
+          password: ${{ secrets.DOCKER_REGISTRY_PASSWORD }}
+
+      - name: Build and push multi-arch image
+        id: build-push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          provenance: false
+          sbom: false
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
           platforms: linux/amd64,linux/arm64
+          cache-from: type=gha,scope=docker-release
+          cache-to: type=gha,mode=max,scope=docker-release
+
+      - name: Show published digest
+        run: |
+          echo "Published image digest: ${{ steps.build-push.outputs.digest }}"

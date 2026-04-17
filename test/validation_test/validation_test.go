@@ -15,13 +15,13 @@
 package validation_test
 
 import (
-	"gitlabFileScanner/internal/strutil"
-	"net/url"
-	"strconv"
 	"testing"
+
+	"gitlabFileScanner/internal/cli/commands"
+	"gitlabFileScanner/internal/strutil"
 )
 
-// Тесты валидации URL (копия логики из flags.go)
+// Тесты валидации URL (через ScanFlags.ToDomain).
 func TestGitLabURLValidation(t *testing.T) {
 	testCases := []struct {
 		Description string
@@ -30,12 +30,12 @@ func TestGitLabURLValidation(t *testing.T) {
 	}{
 		{Description: "Valid HTTPS URL", URL: "https://gitlab.com", ShouldPass: true},
 		{Description: "Valid HTTP URL", URL: "http://localhost:8080", ShouldPass: true},
-		{Description: "Empty URL", URL: "", ShouldPass: true}, // url.Parse accepts empty strings
-		{Description: "URL without scheme", URL: "gitlab.com", ShouldPass: true}, // url.Parse accepts it
+		{Description: "Empty URL", URL: "", ShouldPass: false},
+		{Description: "URL without scheme", URL: "gitlab.com", ShouldPass: false},
 		{Description: "URL with path", URL: "https://gitlab.com/api/v4", ShouldPass: true},
 		{Description: "URL with query", URL: "https://gitlab.com?token=abc", ShouldPass: true},
 		{Description: "Invalid URL with spaces", URL: "https://gitlab .com", ShouldPass: false},
-		{Description: "Just scheme", URL: "https://", ShouldPass: true},
+		{Description: "Just scheme", URL: "https://", ShouldPass: false},
 		{Description: "Malformed URL", URL: "://broken", ShouldPass: false},
 		{Description: "URL with unicode", URL: "https://gitlab.com/тест", ShouldPass: true},
 	}
@@ -45,7 +45,15 @@ func TestGitLabURLValidation(t *testing.T) {
 			t.Parallel()
 			t.Helper()
 
-			_, err := url.Parse(tc.URL)
+			flags := commands.ScanFlags{
+				GitLabURL:     tc.URL,
+				GitLabBranch:  "main",
+				ExportPath:    "/tmp/output",
+				FilesMask:     "*",
+				ProjectsLimit: 100,
+			}
+
+			_, err := flags.ToDomain()
 			passed := err == nil
 
 			if passed != tc.ShouldPass {
@@ -82,44 +90,6 @@ func TestFileMaskValidation(t *testing.T) {
 
 			if passed != tc.ShouldPass {
 				t.Errorf("Mask '%s': expected pass=%v, got %v (err=%v)", tc.Mask, tc.ShouldPass, passed, err)
-			}
-		})
-	}
-}
-
-// Тесты парсинга чисел (копия логики stringToNumber из flags.go)
-func TestStringToNumber(t *testing.T) {
-	testCases := []struct {
-		Description string
-		Input       string
-		Expected    int
-		ShouldPass  bool
-	}{
-		{Description: "Positive number", Input: "42", Expected: 42, ShouldPass: true},
-		{Description: "Zero", Input: "0", Expected: 0, ShouldPass: true},
-		{Description: "Negative number", Input: "-5", Expected: -5, ShouldPass: true},
-		{Description: "Large number", Input: "999999999", Expected: 999999999, ShouldPass: true},
-		{Description: "Empty string", Input: "", Expected: 0, ShouldPass: false},
-		{Description: "Non-numeric string", Input: "abc", Expected: 0, ShouldPass: false},
-		{Description: "Float string", Input: "3.14", Expected: 0, ShouldPass: false},
-		{Description: "Spaces around number", Input: "  42  ", Expected: 0, ShouldPass: false}, // strconv.Atoi rejects spaces
-		{Description: "Plus sign", Input: "+42", Expected: 42, ShouldPass: true},
-	}
-
-	for _, tc := range testCases {
-		t.Run(tc.Description, func(t *testing.T) {
-			t.Parallel()
-			t.Helper()
-
-			result, err := strconv.Atoi(tc.Input)
-			passed := err == nil
-
-			if passed != tc.ShouldPass {
-				t.Errorf("Input '%s': expected pass=%v, got %v (err=%v)", tc.Input, tc.ShouldPass, passed, err)
-			}
-
-			if passed && result != tc.Expected {
-				t.Errorf("Input '%s': expected %d, got %d", tc.Input, tc.Expected, result)
 			}
 		})
 	}

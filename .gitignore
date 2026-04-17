@@ -5,9 +5,15 @@
 *.so
 *.dylib
 
+# Cache
+.gocache
+
 # Go test and coverage
 *.test
 *.out
+
+# Go tools
+tools
 
 # Go workspace
 go.work
@@ -17,6 +23,13 @@ go.work
 files_lists/
 export/
 
+# logs
+.logs
+
+# Temp
+.gotmp
+*.tmp
+
 # IDE / Editors
 .vscode/
 .cursor/
@@ -25,3 +38,17 @@ export/
 # Internal tooling
 .todo/
 .qwen/
+.docs/
+
+# Docs
+!docs/CI-CD.md
+!docs/DEVELOPMENT.md
+
+# Agent files
+plans
+docs
+AGENTS.md
+
+# Coverage
+coverage
+coverage*.*

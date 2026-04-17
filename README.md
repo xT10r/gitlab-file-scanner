@@ -39,7 +39,7 @@ docker pull docker.io/xt10r/gitlab-file-scanner:latest
 ## Быстрый старт
 
 ```bash
-gitlab-file-scanner \
+gitlab-file-scanner scan \
   --url https://gitlab.com \
   --token glpat-xxx \
   --branch main \
@@ -47,20 +47,34 @@ gitlab-file-scanner \
   --export-files-path ./output
 ```
 
+Или через короткие переменные окружения:
+
+```bash
+export GFS_URL=https://gitlab.com
+export GFS_API_TOKEN=glpat-xxx
+export GFS_BRANCH=main
+export GFS_FILEMASK="*.go"
+export GFS_EXPORT_PATH=./output
+
+gitlab-file-scanner scan
+```
+
 ## Как пользоваться
 
-### Через флаги
+Команда сканирования — `gitlab-file-scanner scan`.
+
+### Через аргументы (параметры) командной строки
 
 ```bash
 # Все проекты, только Markdown
-gitlab-file-scanner \
+gitlab-file-scanner scan \
   --url https://gitlab.com \
   --branch main \
   --files-mask "*.md" \
   --export-files-path ./output
 
 # Один конкретный проект, все файлы
-gitlab-file-scanner \
+gitlab-file-scanner scan \
   --url https://gitlab.com \
   --branch main \
   --project-id 56903310 \
@@ -70,11 +84,11 @@ gitlab-file-scanner \
 ### Через переменные окружения
 
 ```bash
-export GITLAB_FILE_SCANNER_SERVER_URL=https://gitlab.com
-export GITLAB_FILE_SCANNER_BRANCH=main
-export GITLAB_FILE_SCANNER_EXPORT_PATH=./output
+export GFS_URL=https://gitlab.com
+export GFS_BRANCH=main
+export GFS_EXPORT_PATH=./output
 
-gitlab-file-scanner
+gitlab-file-scanner scan
 ```
 
 ### Docker
@@ -82,23 +96,24 @@ gitlab-file-scanner
 ```bash
 docker run --rm \
   -v ./output:/app/files_lists \
-  -e GITLAB_FILE_SCANNER_SERVER_URL=https://gitlab.com \
-  -e GITLAB_FILE_SCANNER_BRANCH=main \
-  -e GITLAB_FILE_SCANNER_EXPORT_PATH=/app/files_lists \
-  docker.io/xt10r/gitlab-file-scanner:latest
+  -e GFS_URL=https://gitlab.com \
+  -e GFS_BRANCH=main \
+  -e GFS_EXPORT_PATH=/app/files_lists \
+  docker.io/xt10r/gitlab-file-scanner:latest scan
 ```
 
-## Флаги
+## Параметры
 
 | Флаг | Env | По умолчанию | Описание |
 |------|-----|:------------:|----------|
-| `--url` | `GITLAB_FILE_SCANNER_SERVER_URL` | - | URL GitLab |
-| `--token` | `GITLAB_FILE_SCANNER_API_TOKEN` | - | Токен API |
-| `--branch` | `GITLAB_FILE_SCANNER_BRANCH` | - | Ветка |
-| `--project-id` | `GITLAB_FILE_SCANNER_PROJECT_ID` | - | ID проекта |
-| `--projects-limit` | `GITLAB_FILE_SCANNER_PROJECTS_LIMIT` | 100 | Лимит проектов |
-| `--export-files-path` | `GITLAB_FILE_SCANNER_EXPORT_PATH` | - | Куда сохранять JSON |
-| `--files-mask` | `GITLAB_FILE_SCANNER_FILEMASK` | `*` | Маска файлов |
+| `--url` | `GFS_URL` | - | URL GitLab |
+| `--token` | `GFS_API_TOKEN` | - | Токен API |
+| `--token-file` | `GFS_API_TOKEN_FILE` | - | Файл с токеном API |
+| `--branch` | `GFS_BRANCH` | `main` | Ветка |
+| `--project-id` | `GFS_PROJECT_ID` | - | ID проекта |
+| `--projects-limit` | `GFS_PROJECTS_LIMIT` | 100 | Лимит проектов |
+| `--export-files-path` | `GFS_EXPORT_PATH` | - | Куда сохранять JSON |
+| `--files-mask` | `GFS_FILEMASK` | `*` | Маска файлов |
 
 ## Что на выходе
 
@@ -136,5 +151,3 @@ docker run --rm \
 ## Лицензия
 
 [Apache License 2.0](LICENSE)
-
-Copyright 2024 Alex Dobshikov

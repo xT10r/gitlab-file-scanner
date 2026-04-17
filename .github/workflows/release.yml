@@ -11,50 +11,192 @@ on:
         type: string
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  group: release-${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref }}
+  cancel-in-progress: false
 
 permissions:
-  contents: read
-
-env:
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+  contents: write
 
 jobs:
-  # ──────────────────────────────────────────────
-  # GoReleaser
-  # ──────────────────────────────────────────────
-  goreleaser:
-    name: GoReleaser
+  release:
+    name: Release
     runs-on: ubuntu-latest
-    timeout-minutes: 20
-    permissions:
-      contents: write
-      packages: write
+    timeout-minutes: 40
+
     steps:
-      - name: Checkout
+      - name: Checkout release ref
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref }}
 
       - name: Setup Go
-        uses: actions/setup-go@f111f3307d8850f501ac008e886eec1fd1932a34 # v5.3.0
+        uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
           cache: true
           cache-dependency-path: go.sum
 
-      - name: Download dependencies
-        run: go mod download
+      - name: Resolve version
+        shell: bash
+        run: |
+          set -euo pipefail
 
-      - name: Run tests
-        run: go test -race -v ./test/...
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            VERSION="${{ inputs.tag }}"
+          else
+            VERSION="${GITHUB_REF#refs/tags/}"
+          fi
 
-      - name: Run GoReleaser
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
+          echo "Resolved version: $VERSION"
+
+      - name: Validate git tag
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          git fetch --tags --force
+
+          git rev-parse "refs/tags/$VERSION" >/dev/null 2>&1 || {
+            echo "::error::Tag '$VERSION' does not exist."
+            exit 1
+          }
+
+          git describe --tags --exact-match >/dev/null 2>&1 || {
+            echo "::error::Checked out commit is not exactly at a tag."
+            exit 1
+          }
+
+      - name: Verify module cache integrity
+        run: go mod verify
+
+      - name: Run release tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          go test -race ./...
+
+      - name: Extract release notes from CHANGELOG.md
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          VERSION_CLEAN="${VERSION#v}"
+
+          awk -v v1="$VERSION" -v v2="$VERSION_CLEAN" '
+            $0 ~ "^## \\[" v1 "\\]" || $0 ~ "^## \\[" v2 "\\]" {flag=1; next}
+            /^## \[/ {flag=0}
+            flag
+          ' CHANGELOG.md > release_notes.md
+
+          test -s release_notes.md || {
+            echo "::error::Release notes for $VERSION were not found in CHANGELOG.md"
+            exit 1
+          }
+
+          grep -q '[^[:space:]]' release_notes.md || {
+            echo "::error::Release notes for $VERSION are empty"
+            exit 1
+          }
+
+          echo "Release notes extracted successfully."
+
+      - name: Ensure release does not already exist
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if gh release view "$VERSION" >/dev/null 2>&1; then
+            echo "::error::GitHub release '$VERSION' already exists."
+            exit 1
+          fi
+
+      - name: Validate GoReleaser config
         uses: goreleaser/goreleaser-action@v6
         with:
           distribution: goreleaser
-          version: latest
-          args: release --clean
+          version: v2.15.2
+          args: check
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build release artifacts (no publish)
+        uses: goreleaser/goreleaser-action@v6
+        with:
+          distribution: goreleaser
+          version: v2.15.2
+          args: release --clean --release-notes=release_notes.md --skip=publish
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Validate built artifacts
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          test -d dist
+          test -f dist/checksums.txt
+
+          mapfile -t ARCHIVES < <(find dist -maxdepth 1 -type f \( -name '*.tar.gz' -o -name '*.zip' \) | sort)
+          test "${#ARCHIVES[@]}" -gt 0 || {
+            echo "::error::No release archives were produced."
+            exit 1
+          }
+
+          sha256sum -c dist/checksums.txt
+
+          echo "Produced archives:"
+          printf ' - %s\n' "${ARCHIVES[@]}"
+
+      - name: Create GitHub release
+        id: create_release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          EXTRA_ARGS=()
+          if [[ "$VERSION" == *-* ]]; then
+            EXTRA_ARGS+=(--prerelease)
+          fi
+
+          gh release create "$VERSION" \
+            dist/*.tar.gz \
+            dist/*.zip \
+            dist/checksums.txt \
+            --title "$VERSION" \
+            --notes-file release_notes.md \
+            --verify-tag \
+            "${EXTRA_ARGS[@]}"
+
+          URL="$(gh release view "$VERSION" --json url -q '.url')"
+          echo "url=$URL" >> "$GITHUB_OUTPUT"
+
+      - name: Verify published release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          EXPECTED_ASSETS="$(find dist -maxdepth 1 -type f \( -name '*.tar.gz' -o -name '*.zip' -o -name 'checksums.txt' \) | wc -l | tr -d ' ')"
+          ACTUAL_ASSETS="$(gh release view "$VERSION" --json assets -q '.assets | length')"
+          BODY="$(gh release view "$VERSION" --json body -q '.body')"
+
+          if [ -z "$BODY" ]; then
+            echo "::error::Published release body is empty."
+            gh release delete "$VERSION" --yes
+            exit 1
+          fi
+
+          if [ "$EXPECTED_ASSETS" != "$ACTUAL_ASSETS" ]; then
+            echo "::error::Published release assets count mismatch. expected=$EXPECTED_ASSETS actual=$ACTUAL_ASSETS"
+            gh release delete "$VERSION" --yes
+            exit 1
+          fi
+
+      - name: Print release URL
+        run: echo "Release published at ${{ steps.create_release.outputs.url }}"

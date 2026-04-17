@@ -3,15 +3,10 @@ name: Reusable Tests
 on:
   workflow_call:
     inputs:
-      go-version:
-        description: "Go version to use"
-        required: false
-        default: "1.26"
-        type: string
       test-pattern:
-        description: "Test pattern (go test ./...)"
+        description: "go test package pattern"
         required: false
-        default: "./test/..."
+        default: "./..."
         type: string
     outputs:
       coverage:
@@ -25,40 +20,93 @@ jobs:
   test:
     name: Test
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
+
     outputs:
       coverage: ${{ steps.coverage.outputs.coverage }}
+
     steps:
       - name: Checkout
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        uses: actions/checkout@v4
 
       - name: Setup Go
-        uses: actions/setup-go@f111f3307d8850f501ac008e886eec1fd1932a34 # v5.3.0
+        uses: actions/setup-go@v5
         with:
-          go-version: ${{ inputs.go-version }}
+          go-version-file: go.mod
           cache: true
           cache-dependency-path: go.sum
 
-      - name: Download dependencies
-        run: go mod download
+      - name: Show Go version
+        run: go version
 
+      # ─────────────────────────────
+      # Run tests (fail-safe)
+      # ─────────────────────────────
       - name: Run tests
-        id: test
+        shell: bash
         run: |
-          go test -race -coverprofile=coverage.out -v ${{ inputs.test-pattern }} 2>&1 | tee test-output.log
+          set -euo pipefail
 
+          go test \
+            -race \
+            -covermode=atomic \
+            -coverpkg=./... \
+            -coverprofile=coverage.out \
+            -v \
+            ${{ inputs.test-pattern }} \
+            2>&1 | tee test-output.log
+
+      # ─────────────────────────────
+      # Validate coverage
+      # ─────────────────────────────
+      - name: Validate coverage file
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s coverage.out || {
+            echo "coverage.out is missing or empty"
+            exit 1
+          }
+
+      # ─────────────────────────────
+      # Extract coverage (robust)
+      # ─────────────────────────────
       - name: Extract coverage
         id: coverage
+        shell: bash
         run: |
-          if [ -f coverage.out ]; then
-            COV=$(go tool cover -func=coverage.out | grep total | awk '{print $3}' | tr -d '%')
-            echo "coverage=${COV}%" >> "$GITHUB_OUTPUT"
-            echo "Coverage: ${COV}%"
-          fi
+          set -euo pipefail
 
+          LINE="$(go tool cover -func=coverage.out | grep '^total:')"
+          test -n "$LINE" || {
+            echo "Failed to extract total coverage"
+            exit 1
+          }
+
+          COV="$(echo "$LINE" | awk '{print $3}')"
+          test -n "$COV" || {
+            echo "Coverage value is empty"
+            exit 1
+          }
+
+          echo "coverage=$COV" >> "$GITHUB_OUTPUT"
+          echo "Coverage: $COV"
+
+      # ─────────────────────────────
+      # Upload artifacts
+      # ─────────────────────────────
       - name: Upload coverage report
-        uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08 # v4.6.0
+        uses: actions/upload-artifact@v4
         with:
-          name: coverage-report-${{ github.job }}
+          name: coverage-${{ github.run_id }}
           path: coverage.out
+          if-no-files-found: error
           retention-days: 30
+
+      - name: Upload test log
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-log-${{ github.run_id }}
+          path: test-output.log
+          if-no-files-found: error
+          retention-days: 14

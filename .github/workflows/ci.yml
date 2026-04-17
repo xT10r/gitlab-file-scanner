@@ -9,150 +9,148 @@ on:
   workflow_dispatch:
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 permissions:
   contents: read
 
-env:
-  GO_VERSION: "1.26"
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
-
 jobs:
-  # ──────────────────────────────────────────────
-  # Lint
-  # ──────────────────────────────────────────────
   lint:
     name: Lint
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          fetch-depth: 1
+          fetch-depth: 0
 
       - name: Setup Go
-        uses: actions/setup-go@f111f3307d8850f501ac008e886eec1fd1932a34 # v5.3.0
+        uses: actions/setup-go@v5
         with:
-          go-version: ${{ env.GO_VERSION }}
+          go-version-file: go.mod
           cache: true
           cache-dependency-path: go.sum
 
-      - name: Download dependencies
-        run: go mod download
+      - name: Show Go version
+        run: go version
 
-      - name: Run go mod tidy check
+      - name: Verify module files are tidy
+        shell: bash
         run: |
+          set -euo pipefail
           go mod tidy
-          git diff --exit-code go.mod go.sum || { echo "go.mod/go.sum not tidy - run 'go mod tidy'"; exit 1; }
+          git diff --exit-code -- go.mod go.sum || {
+            echo "go.mod/go.sum are not tidy. Run 'go mod tidy'."
+            exit 1
+          }
+
+      - name: Verify module cache integrity
+        run: go mod verify
 
       - name: Run go vet
         run: go vet ./...
+
+      - name: Build sanity check
+        run: go build ./cmd/main.go
 
       - name: Check license headers
         run: make license-check
 
       - name: Run golangci-lint
-        uses: golangci/golangci-lint-action@1481404843c368bc19ca9406f87d6e0fc97bdcfd # v7.0.0
+        uses: golangci/golangci-lint-action@v9
         with:
-          version: latest
+          version: v2.11.3
+          args: --timeout=5m ./...
 
-  # ──────────────────────────────────────────────
-  # Test
-  # ──────────────────────────────────────────────
   test:
     name: Test
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
     needs: [lint]
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+    uses: ./.github/workflows/reusable-test.yml
+    with:
+      test-pattern: "./..."
 
-      - name: Setup Go
-        uses: actions/setup-go@f111f3307d8850f501ac008e886eec1fd1932a34 # v5.3.0
-        with:
-          go-version: ${{ env.GO_VERSION }}
-          cache: true
-          cache-dependency-path: go.sum
-
-      - name: Download dependencies
-        run: go mod download
-
-      - name: Run tests
-        run: go test -race -coverprofile=coverage.out -v ./test/...
-
-      - name: Upload coverage
-        uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08 # v4.6.0
-        with:
-          name: coverage-report
-          path: coverage.out
-          retention-days: 30
-
-  # ──────────────────────────────────────────────
-  # Security
-  # ──────────────────────────────────────────────
   security:
     name: Security Scan
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
     needs: [lint]
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
       - name: Setup Go
-        uses: actions/setup-go@f111f3307d8850f501ac008e886eec1fd1932a34 # v5.3.0
+        uses: actions/setup-go@v5
         with:
-          go-version: ${{ env.GO_VERSION }}
+          go-version-file: go.mod
           cache: true
           cache-dependency-path: go.sum
 
+      - name: Show Go version
+        run: go version
+
       - name: Run govulncheck
+        shell: bash
         run: |
-          go install golang.org/x/vuln/cmd/govulncheck@latest
+          set -euo pipefail
+          GOBIN="$RUNNER_TEMP/bin"
+          mkdir -p "$GOBIN"
+          echo "$GOBIN" >> "$GITHUB_PATH"
+          go install golang.org/x/vuln/cmd/govulncheck@v1.1.4
           govulncheck ./...
 
-  # ──────────────────────────────────────────────
-  # Build
-  # ──────────────────────────────────────────────
   build:
     name: Build (${{ matrix.goos }}/${{ matrix.goarch }})
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
     needs: [test, security]
+
     strategy:
       fail-fast: false
       matrix:
         goos: [linux, darwin, windows]
         goarch: [amd64, arm64]
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
       - name: Setup Go
-        uses: actions/setup-go@f111f3307d8850f501ac008e886eec1fd1932a34 # v5.3.0
+        uses: actions/setup-go@v5
         with:
-          go-version: ${{ env.GO_VERSION }}
+          go-version-file: go.mod
           cache: true
           cache-dependency-path: go.sum
 
-      - name: Download dependencies
-        run: go mod download
-
-      - name: Build
+      - name: Build binary
+        shell: bash
         env:
           GOOS: ${{ matrix.goos }}
           GOARCH: ${{ matrix.goarch }}
           CGO_ENABLED: 0
         run: |
-          go build -ldflags="-s -w" -o gitlab-file-scanner-${{ matrix.goos }}-${{ matrix.goarch }} ./cmd
+          set -euo pipefail
 
-      - name: Upload binary
-        uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08 # v4.6.0
+          EXT=""
+          if [ "$GOOS" = "windows" ]; then
+            EXT=".exe"
+          fi
+
+          OUT="gitlab-file-scanner-${GOOS}-${GOARCH}${EXT}"
+
+          go build \
+            -trimpath \
+            -ldflags="-s -w" \
+            -o "$OUT" \
+            ./cmd
+
+      - name: Upload binary artifact
+        uses: actions/upload-artifact@v4
         with:
           name: gitlab-file-scanner-${{ matrix.goos }}-${{ matrix.goarch }}
-          path: gitlab-file-scanner-${{ matrix.goos }}-${{ matrix.goarch }}
+          path: gitlab-file-scanner-*
+          if-no-files-found: error
           retention-days: 7

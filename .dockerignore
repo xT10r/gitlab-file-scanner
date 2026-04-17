@@ -1,0 +1,21 @@
+# VCS and editor metadata
+.git
+.vscode
+
+# Local workspace caches and notes
+.docs
+.gocache
+.gotmp
+.logs
+.qwen
+.todo
+
+# Generated outputs and reports
+coverage
+coverage*.out
+dist
+export
+
+# Local binaries and test artifacts
+*.test
+*.exe
