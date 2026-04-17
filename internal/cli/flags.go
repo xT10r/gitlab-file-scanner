@@ -24,19 +24,3 @@ const (
 type GlobalOptions struct {
 	Format OutputFormat
 }
-
-func parseGlobalOptions(args []string) (GlobalOptions, []string) {
-	opts := GlobalOptions{Format: FormatText}
-	var filtered []string
-
-	for _, a := range args {
-		switch a {
-		case "--json", "-json":
-			opts.Format = FormatJSON
-		default:
-			filtered = append(filtered, a)
-		}
-	}
-
-	return opts, filtered
-}

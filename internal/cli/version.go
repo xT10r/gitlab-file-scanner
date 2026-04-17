@@ -14,48 +14,12 @@
 
 package cli
 
-import "fmt"
-
 var (
 	Version   = "unknown"
 	Commit    = "unknown"
 	Branch    = "unknown"
 	BuildTime = "unknown"
 )
-
-type VersionResult struct {
-	Version   string `json:"version"`
-	Commit    string `json:"commit"`
-	Branch    string `json:"branch"`
-	BuildTime string `json:"buildTime"`
-	Resolved  string `json:"resolved"`
-}
-
-func versionResult() VersionResult {
-	return VersionResult{
-		Version:   Version,
-		Commit:    Commit,
-		Branch:    Branch,
-		BuildTime: BuildTime,
-		Resolved:  resolveVersion(),
-	}
-}
-
-func resolveVersion() string {
-	if Version != "" && Version != "unknown" {
-		return Version
-	}
-
-	if Branch != "unknown" && Commit != "unknown" {
-		return fmt.Sprintf("%s-%s", Branch, Commit[:7])
-	}
-
-	if BuildTime != "unknown" {
-		return "build-" + BuildTime
-	}
-
-	return "unknown"
-}
 
 /*
 var Version = "dev"

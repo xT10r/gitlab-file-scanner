@@ -71,7 +71,7 @@ func (f *Formatter) Print(data any) {
 		f.PrintTable(kv)
 		return
 	}
-	fmt.Fprintf(f.stdout, "%+v\n", data)
+	_, _ = fmt.Fprintf(f.stdout, "%+v\n", data)
 }
 
 // PrintTable outputs a simple key-value table in text mode, or JSON in JSON mode.
@@ -81,7 +81,7 @@ func (f *Formatter) PrintTable(kv map[string]string) {
 		return
 	}
 	for k, v := range kv {
-		fmt.Fprintf(f.stdout, "%-12s %s\n", k+":", v)
+		_, _ = fmt.Fprintf(f.stdout, "%-12s %s\n", k+":", v)
 	}
 }
 
@@ -90,7 +90,7 @@ func (f *Formatter) Println(msg string) {
 	if f.jsonMode {
 		return
 	}
-	fmt.Fprintln(f.stdout, msg)
+	_, _ = fmt.Fprintln(f.stdout, msg)
 }
 
 // Printf prints formatted text in text mode only.
@@ -98,7 +98,7 @@ func (f *Formatter) Printf(format string, args ...any) {
 	if f.jsonMode {
 		return
 	}
-	fmt.Fprintf(f.stdout, format, args...)
+	_, _ = fmt.Fprintf(f.stdout, format, args...)
 }
 
 // Error prints an error message to stderr.
@@ -112,7 +112,7 @@ func (f *Formatter) Error(err error) {
 		})
 		return
 	}
-	fmt.Fprintf(f.stderr, "Error: %v\n", err)
+	_, _ = fmt.Fprintf(f.stderr, "Error: %v\n", err)
 }
 
 // Err is an alias for Error.
@@ -124,8 +124,8 @@ func (f *Formatter) Err(err error) {
 // or to stdout in text mode.
 func (f *Formatter) Log(msg string) {
 	if f.jsonMode {
-		fmt.Fprintln(f.stderr, msg)
+		_, _ = fmt.Fprintln(f.stderr, msg)
 		return
 	}
-	fmt.Fprintln(f.stdout, msg)
+	_, _ = fmt.Fprintln(f.stdout, msg)
 }
