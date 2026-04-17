@@ -13,7 +13,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-## [v1.0.0] - 2026-04-14
+## [v1.0.0] - 2026-04-17
+
+Initial release of GitLab File Scanner, a CLI tool for scanning GitLab repositories and exporting file lists.
 
 ### Added
 
@@ -43,23 +45,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- **CRITICAL**: Goroutine leak in `scanRepository` (semaphore acquired before defer)
-- **HIGH**: Duplicate files in filter results when masks overlap
-- **HIGH**: Pluralization for Russian numbers 11–14, 111–114
-- **MEDIUM**: Format string panic when log message contains `%` without args
-- **MEDIUM**: Regex injection via unescaped `[`, `]`, `\`, `+`, `?`, `{`, `}`, `^`, `$`
-- **MEDIUM**: Race conditions in mock implementations (added `sync.RWMutex`)
+- Goroutine leak in `scanRepository` (semaphore acquired before defer)
+- Duplicate files in filter results when masks overlap
+- Pluralization for Russian numbers 11–14, 111–114
+- Format string panic when log message contains `%` without args
+- Regex injection via unescaped `[`, `]`, `\`, `+`, `?`, `{`, `}`, `^`, `$`
+- Race conditions in mock implementations (added `sync.RWMutex`)
 - `sort.StringSlice` → `sort.Strings` (was not sorting)
 - Ignored error from `GetProjects()` in app.go
 - Potential nil dereference in `scanDir` response handling
 - Closure capture bug in concurrent directory scanning
 - CRLF line endings in `go.sum` breaking CI
 - Duration output: `[1d 2h]` → `1d 2h` (`fmt.Sprintf` → `strings.Join`)
-
-### Removed
-
-- Legacy `internal/file/`, `internal/flags/`, `internal/gitlab/api/`, `internal/text/`
-- Dead code in `internal/gitlab/api/api.go`
-- Unused `SortFilePaths` function
 
 [v1.0.0]: https://github.com/xT10r/gitlab-file-scanner/releases/tag/v1.0.0
