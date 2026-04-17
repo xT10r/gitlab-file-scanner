@@ -88,14 +88,14 @@ jobs:
             $0 ~ "^## \\[" v1 "\\]" || $0 ~ "^## \\[" v2 "\\]" {flag=1; next}
             /^## \[/ {flag=0}
             flag
-          ' CHANGELOG.md > release_notes.md
+          ' CHANGELOG.md > "$RUNNER_TEMP/release_notes.md"
 
-          test -s release_notes.md || {
+          test -s "$RUNNER_TEMP/release_notes.md" || {
             echo "::error::Release notes for $VERSION were not found in CHANGELOG.md"
             exit 1
           }
 
-          grep -q '[^[:space:]]' release_notes.md || {
+          grep -q '[^[:space:]]' "$RUNNER_TEMP/release_notes.md" || {
             echo "::error::Release notes for $VERSION are empty"
             exit 1
           }
@@ -127,7 +127,7 @@ jobs:
         with:
           distribution: goreleaser
           version: v2.15.2
-          args: release --clean --release-notes=release_notes.md --skip=publish
+          args: release --clean --release-notes=$RUNNER_TEMP/release_notes.md --skip=publish
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -168,7 +168,7 @@ jobs:
             dist/*.zip \
             dist/checksums.txt \
             --title "$VERSION" \
-            --notes-file release_notes.md \
+            --notes-file "$RUNNER_TEMP/release_notes.md" \
             --verify-tag \
             "${EXTRA_ARGS[@]}"
 
